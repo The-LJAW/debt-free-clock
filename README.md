@@ -13,17 +13,18 @@ no bank linking.
 | `src/app.js` | The page's behavior: state, local storage, editors, planner, chart, live clock. |
 | `src/page.html` | Markup and styles, with placeholders the build fills in. |
 | `test/engine.test.js` | Unit tests for the engine (textbook loan schedules, plans, rebasing, dates). |
-| `build.py` | Inlines engine + app into one file: `dist/debt-free-clock.html`. |
+| `build.py` | Inlines engine + app into one page. Writes `index.html` (the website) and `dist/debt-free-clock.html` (the Claude artifact version). |
+| `index.html` | The built website. GitHub Pages serves this file. Don't edit it by hand: change `src/` and rebuild. |
 
 ## Commands
 
 ```bash
 node --test test/engine.test.js   # run the math tests
-python3 build.py                  # build dist/debt-free-clock.html
+python3 build.py                  # rebuild index.html and dist/debt-free-clock.html
 ```
 
-`dist/debt-free-clock.html` is a page fragment (no `<html>/<head>/<body>`), published as
-a Claude artifact. For a standalone website, wrap it in a normal HTML document.
+`index.html` is the full website. `dist/debt-free-clock.html` is the same page without
+`<html>/<head>/<body>`, for publishing as a Claude artifact.
 
 ## How the model works
 
