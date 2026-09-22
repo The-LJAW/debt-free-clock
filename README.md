@@ -13,13 +13,16 @@ no bank linking.
 | `src/app.js` | The page's behavior: state, local storage, editors, planner, chart, live clock. |
 | `src/page.html` | Markup and styles, with placeholders the build fills in. |
 | `test/engine.test.js` | Unit tests for the engine (textbook loan schedules, plans, rebasing, dates). |
+| `src/license.js` | Pro license checks against the Lemon Squeezy License API (activate, validate, deactivate). |
+| `src/config.js` | Pro settings: price, checkout link, store ID, product IDs. The lock is off until these are filled in. |
+| `test/license.test.js` | Unit tests for the license checks (fake Lemon Squeezy replies). |
 | `build.py` | Inlines engine + app into one page. Writes `index.html` (the website) and `dist/debt-free-clock.html` (the Claude artifact version). |
 | `index.html` | The built website. GitHub Pages serves this file. Don't edit it by hand: change `src/` and rebuild. |
 
 ## Commands
 
 ```bash
-node --test test/engine.test.js   # run the math tests
+node --test test/*.test.js        # run the math and license tests
 python3 build.py                  # rebuild index.html and dist/debt-free-clock.html
 ```
 
@@ -49,3 +52,19 @@ python3 build.py                  # rebuild index.html and dist/debt-free-clock.
 - Free: the clock, tickers, debts and assets. Pro (one-time unlock): the payoff
   planner, i.e. avalanche/snowball, extra-payment what-ifs and the chart.
 - Privacy: numbers stay on the device (local storage), with no server database in v1.
+
+## Pro unlock
+
+- Free: the clock, tickers, debts and assets. The clock runs on minimum payments.
+- Pro ($9 once, sold through Lemon Squeezy): the payoff planner, whose plan then drives
+  the countdown.
+- Free visitors see a teaser computed from their own debts (avalanche + extra) and a buy
+  button. After checkout, Lemon Squeezy emails a license key. Pasting it activates one
+  device slot, and the unlock is remembered in that browser.
+- Each browser re-checks its key every 14 days. A refunded or disabled key locks again;
+  being offline never locks anyone out. "Remove from this browser" frees the slot.
+- Only the license key goes to Lemon Squeezy; debt numbers never leave the page.
+- The Claude artifact build runs in preview mode, with no payments: the button and any
+  key-shaped code unlock Pro.
+- Like any browser-only unlock, a determined person can bypass it. It's meant to make
+  paying easy, not to be copy protection.

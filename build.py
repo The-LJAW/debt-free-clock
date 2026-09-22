@@ -1,24 +1,31 @@
 """Build the Debt-Free Clock.
 
 Writes two files from src/:
-  dist/debt-free-clock.html  page fragment, published as a Claude artifact
-  index.html                 standalone website (GitHub Pages serves this)
+  index.html                 the live website (GitHub Pages serves this)
+  dist/debt-free-clock.html  page fragment for the Claude artifact preview. It runs in
+                             "preview" mode: payments aren't connected there, so the Pro
+                             button and any key-shaped code unlock Pro for testing.
 """
 from pathlib import Path
 
 root = Path(__file__).parent
-page = (root / "src/page.html").read_text()
-page = page.replace("/*@ENGINE@*/", (root / "src/engine.js").read_text())
-page = page.replace("/*@APP@*/", (root / "src/app.js").read_text())
+src = lambda name: (root / "src" / name).read_text()
 
-# 1) Artifact fragment
+page = src("page.html")
+for marker, name in [("/*@ENGINE@*/", "engine.js"), ("/*@LICENSE@*/", "license.js"),
+                     ("/*@CONFIG@*/", "config.js"), ("/*@APP@*/", "app.js")]:
+    assert marker in page, marker
+    page = page.replace(marker, src(name))
+
+# 1) Artifact preview fragment
 frag = root / "dist/debt-free-clock.html"
 frag.parent.mkdir(exist_ok=True)
-frag.write_text(page)
+frag.write_text(page.replace("/*@PREVIEW@*/", "window.DFC_PREVIEW = true;"))
 
 # 2) Standalone site: head items (title, font links, styles) go in <head>, the rest in <body>
-split = page.index('<div class="wrap">')
-head_part, body_part = page[:split], page[split:]
+site_page = page.replace("/*@PREVIEW@*/", "")
+split = site_page.index('<div class="wrap">')
+head_part, body_part = site_page[:split], site_page[split:]
 
 DESCRIPTION = ("A live countdown to the day you're debt-free, with your balance, interest "
                "and net worth ticking in real time. Private: your numbers never leave your browser.")
@@ -51,4 +58,4 @@ img {{ max-width: 100%; }}
 </html>
 """
 (root / "index.html").write_text(site)
-print(f"wrote {frag.relative_to(root)} and index.html ({len(site.encode()):,} bytes)")
+print(f"wrote {frag.relative_to(root)} (preview mode) and index.html ({len(site.encode()):,} bytes)")

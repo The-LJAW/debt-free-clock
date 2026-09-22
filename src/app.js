@@ -89,6 +89,35 @@
   }
 
   var state = load();
+
+  // ---------- Pro (license) state ----------
+  // The lock is only on when Lemon Squeezy is configured (or in the preview build);
+  // otherwise everyone gets the full planner.
+  var L = window.DFCLicense;
+  var CFG = window.DFC_PRO || {};
+  var PREVIEW = !!window.DFC_PREVIEW;
+  var PRO_KEY = 'debt-free-clock:pro';
+  var gating = PREVIEW || L.isConfigured(CFG);
+  var pro = loadPro();
+  var teaser = null;
+
+  function loadPro() {
+    try {
+      var raw = window.localStorage.getItem(PRO_KEY);
+      if (raw) { var p = JSON.parse(raw); if (p && p.key && p.instanceId) return p; }
+    } catch (e) { /* storage blocked: treated as not unlocked */ }
+    return null;
+  }
+  function savePro() {
+    try {
+      if (pro) window.localStorage.setItem(PRO_KEY, JSON.stringify(pro));
+      else window.localStorage.removeItem(PRO_KEY);
+    } catch (e) { /* ignore */ }
+  }
+  function proActive() { return !gating || !!pro; }
+  /** Free users run on minimum payments; Pro users run the plan they chose. */
+  function effectivePlan() { return proActive() ? state.plan : { method: 'minimums', extra: 0 }; }
+  function teaserExtra() { return (+state.plan.extra || 0) > 0 ? +state.plan.extra : 100; }
   // incBase / incPlan: debts counted in the countdown (minimums vs. chosen plan).
   // plan: every debt's schedule merged back into list order, for the live tickers,
   //       rebasing and per-debt chips. Uncounted debts (e.g. a mortgage) just pay
@@ -103,7 +132,9 @@
       if (counted(d)) { inc.push(d); incIdx.push(i); } else { exc.push(d); excIdx.push(i); }
     });
     incBase = E.simulateDebts(inc, { method: 'minimums' });
-    incPlan = state.plan.method === 'minimums' ? incBase : E.simulateDebts(inc, state.plan);
+    var ep = effectivePlan();
+    incPlan = ep.method === 'minimums' ? incBase : E.simulateDebts(inc, ep);
+    teaser = proActive() ? null : E.simulateDebts(inc, { method: 'avalanche', extra: teaserExtra() });
     var excSim = E.simulateDebts(exc, { method: 'minimums' });
     var n = state.debts.length, series = new Array(n), payoffMonth = new Array(n), interest = new Array(n);
     incIdx.forEach(function (i, k) { series[i] = incPlan.series[k]; payoffMonth[i] = incPlan.payoffMonth[k]; interest[i] = incPlan.interest[k]; });
@@ -261,11 +292,12 @@
       var i = s[listKey].findIndex(function (x) { return x.id === id; });
       if (i >= 0) { lastRemoved = { listKey: listKey, item: s[listKey][i], index: i }; s[listKey].splice(i, 1); }
     }, { lists: true, userEdit: true });
-    showToast('Removed “' + label + '”');
+    showToast('Removed “' + label + '”', true);
   }
 
-  function showToast(text) {
+  function showToast(text, withUndo) {
     $('toast-text').textContent = text;
+    $('toast-undo').hidden = !withUndo;
     $('toast').hidden = false;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { $('toast').hidden = true; lastRemoved = null; }, 7000);
@@ -367,9 +399,11 @@
     $('extra-out').textContent = fmt0.format(extra);
     $('method-help').textContent = HELP[method];
 
-    // board tag + payoff line
-    $('plan-tag').textContent = method === 'minimums' ? 'Minimums only'
-      : (method === 'avalanche' ? 'Avalanche' : 'Snowball') + ' plan' + (extra ? ' · +' + fmt0.format(extra) + '/mo' : '');
+    // board tag follows the plan actually on the clock
+    var ep = effectivePlan(), epExtra = +ep.extra || 0;
+    $('plan-tag').textContent = ep.method === 'minimums' ? 'Minimums only'
+      : (ep.method === 'avalanche' ? 'Avalanche' : 'Snowball') + ' plan' + (epExtra ? ' · +' + fmt0.format(epExtra) + '/mo' : '');
+    renderPro();
 
     // debts header
     var totalBal = 0, monthlyInt = 0, count = 0;
@@ -441,7 +475,7 @@
       }
       return;
     }
-    var method = state.plan.method;
+    var method = effectivePlan().method;
     if (method === 'minimums') {
       big.textContent = isFinite(base.months) ? 'Debt-free ' + dMonthYear.format(new Date(payoffDate(base.months))) : 'Not at this pace';
       sub.textContent = 'Choose Avalanche or Snowball, or slide in a little extra, to see how much sooner you could be free.';
@@ -481,6 +515,157 @@
     });
   }
 
+  // ---------- Pro gate, unlock, removal ----------
+  var KEY_ERRORS = {
+    'not-found': 'We couldn’t find that key. Check it against your purchase email from Lemon Squeezy and try again.',
+    'limit': 'This key is already unlocked on the most browsers it allows. Remove Pro from one you no longer use, then try again.',
+    'wrong-product': 'That key is for a different product.',
+    'disabled': 'This key has been turned off, usually because the purchase was refunded.',
+    'expired': 'This key has expired.',
+    'network': 'Couldn’t reach Lemon Squeezy. Check your internet connection and try again.',
+    'busy': 'Too many tries in a row. Wait a minute, then try again.',
+    'server': 'Lemon Squeezy couldn’t confirm the key right now. Try again in a few minutes.',
+    'rejected': 'Lemon Squeezy couldn’t confirm that key. Check it and try again.'
+  };
+
+  function keyMsg(kind, text) {
+    var el = $('key-msg');
+    el.className = 'key-msg' + (kind ? ' ' + kind : '');
+    el.textContent = text;
+  }
+
+  function renderPro() {
+    var on = proActive();
+    var body = $('plan-body');
+    $('pro-gate').hidden = on;
+    body.classList.toggle('locked', !on);
+    if ('inert' in body) body.inert = !on;
+    if (on) body.removeAttribute('aria-hidden'); else body.setAttribute('aria-hidden', 'true');
+
+    var showStatus = gating && !!pro;
+    $('pro-status').hidden = !showStatus;
+    if (showStatus) {
+      var c = $('pro-status-chip');
+      c.innerHTML = ICON.check;
+      c.appendChild(document.createTextNode('Pro'));
+      $('pro-status-text').textContent = pro.instanceId === 'preview'
+        ? 'Unlocked in this preview.'
+        : 'Unlocked on this browser with key ' + L.maskKey(pro.key) + '.';
+    }
+    if (on) return;
+
+    var buy = $('buy-pro');
+    buy.textContent = 'Unlock Pro · ' + (CFG.price || '$9') + ' once';
+    buy.href = PREVIEW || !CFG.checkoutUrl ? '#' : CFG.checkoutUrl;
+    $('preview-note').hidden = !PREVIEW;
+    $('buy-fine').hidden = PREVIEW;
+    renderTeaser();
+  }
+
+  function renderTeaser() {
+    var big = $('teaser-big'), sub = $('teaser-sub');
+    sub.textContent = '';
+    var x = fmt0.format(teaserExtra());
+    if (!hasCounted() || !teaser) {
+      big.textContent = 'Find your fastest way out';
+      sub.textContent = 'Add your debts, then compare payoff methods and extra payments to see how much sooner you could be free.';
+      return;
+    }
+    if (!isFinite(incBase.months) && isFinite(teaser.months)) {
+      big.textContent = 'A plan clears it by ' + dMonthYear.format(new Date(payoffDate(teaser.months)));
+      sub.textContent = 'Minimum payments alone never pay off your debt. The avalanche method with ' + x + ' extra a month does.';
+      return;
+    }
+    var saved = isFinite(incBase.months) && isFinite(teaser.months) ? incBase.months - teaser.months : 0;
+    if (saved > 0) {
+      big.textContent = span(saved) + ' sooner';
+      sub.appendChild(document.createTextNode('That’s what the avalanche method plus ' + x + ' extra a month could do for your debts, saving about '));
+      sub.appendChild(h('strong', null, fmt0.format(Math.max(0, incBase.totalInterest - teaser.totalInterest)) + ' in interest'));
+      sub.appendChild(document.createTextNode('. Pro lets you try any plan and puts it on your clock.'));
+      return;
+    }
+    big.textContent = 'Find your fastest way out';
+    sub.textContent = 'Compare avalanche and snowball and test extra payments on your own debts.';
+  }
+
+  function grant(key, instanceId) {
+    var now = Date.now();
+    pro = { key: key, instanceId: instanceId, activatedAt: now, checkedAt: now };
+    savePro();
+    $('license-key').value = '';
+    keyMsg('', '');
+    update();
+    showToast('Pro unlocked. Your plan is now on the clock.', false);
+  }
+
+  $('buy-pro').addEventListener('click', function (ev) {
+    if (PREVIEW) { ev.preventDefault(); grant('PREVIEW', 'preview'); return; }
+    if (!CFG.checkoutUrl) { ev.preventDefault(); return; }
+    // Checkout opens in a new tab; have the key box ready for when they come back.
+    $('have-key').open = true;
+  });
+
+  var keyBusy = false;
+  $('key-form').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    if (keyBusy) return;
+    var key = L.normalizeKey($('license-key').value);
+    if (!L.looksLikeKey(key)) {
+      keyMsg('error', 'That doesn’t look like a license key. Copy the long code from your purchase email, like 38B1460A-5104-4067-A91D-77B872934D51.');
+      return;
+    }
+    if (PREVIEW) { grant(key, 'preview'); return; }
+    keyBusy = true;
+    $('key-submit').disabled = true;
+    keyMsg('', 'Checking your key…');
+    L.activate(CFG, key, L.instanceName(navigator.userAgent), window.fetch.bind(window)).then(function (res) {
+      keyBusy = false;
+      $('key-submit').disabled = false;
+      if (res.ok) grant(key, res.instanceId);
+      else keyMsg('error', KEY_ERRORS[res.reason] || KEY_ERRORS.rejected);
+    });
+  });
+
+  var removeTimer = null;
+  function resetRemove() {
+    var b = $('pro-remove');
+    b.classList.remove('armed');
+    b.textContent = 'Remove from this browser';
+  }
+  $('pro-remove').addEventListener('click', function () {
+    var btn = $('pro-remove');
+    if (!btn.classList.contains('armed')) {
+      btn.classList.add('armed');
+      btn.textContent = 'Click again to remove Pro here';
+      removeTimer = setTimeout(resetRemove, 4000);
+      return;
+    }
+    clearTimeout(removeTimer);
+    resetRemove();
+    var old = pro;
+    function finish(text) { pro = null; savePro(); update(); showToast(text, false); }
+    if (!old || old.instanceId === 'preview') { finish('Pro removed from this preview.'); return; }
+    btn.disabled = true;
+    L.deactivate(CFG, old.key, old.instanceId, window.fetch.bind(window)).then(function (r) {
+      btn.disabled = false;
+      finish(r.ok ? 'Pro removed from this browser. That frees a slot on your key.'
+        : 'Pro removed from this browser, but Lemon Squeezy couldn’t be reached, so the slot may still count.');
+    });
+  });
+
+  /** Every couple of weeks, confirm the key is still good (refunds turn keys off). */
+  function recheckPro() {
+    if (PREVIEW || !gating || !pro || pro.instanceId === 'preview') return;
+    if (!L.isDue(pro, Date.now(), CFG.recheckDays)) return;
+    L.validate(CFG, pro.key, pro.instanceId, window.fetch.bind(window)).then(function (r) {
+      if (r.state === 'valid') { pro.checkedAt = Date.now(); savePro(); }
+      else if (r.state === 'invalid') {
+        pro = null; savePro(); update();
+        showToast('Pro is no longer active on this browser. Enter your license key again to unlock it.', false);
+      }
+    });
+  }
+
   // ---------- chart ----------
   var chartState = null;
 
@@ -498,7 +683,7 @@
     var host = $('chart');
     var W = Math.max(260, host.clientWidth || 360), H = 210;
     var M = { l: 46, r: 16, t: 26, b: 26 };
-    var single = state.plan.method === 'minimums';
+    var single = effectivePlan().method === 'minimums';
     var series = single
       ? [{ label: 'Debt remaining', color: 'var(--plan)', sim: incPlan }]
       : [{ label: 'Your plan', color: 'var(--plan)', sim: incPlan }, { label: 'Minimums only', color: 'var(--base)', sim: incBase }];
@@ -781,4 +966,5 @@
   renderLists();
   renderDerived();
   requestAnimationFrame(frame);
+  recheckPro();
 })();

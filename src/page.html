@@ -398,6 +398,45 @@ button, input { font: inherit; color: inherit; }
 .order .o-when { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .order-head { margin-top: 20px; }
 
+/* ---------- pro gate ---------- */
+.gate { display: grid; gap: 14px; margin-top: 14px; }
+.teaser { margin-top: 0; }
+.perks { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.perks li { display: flex; gap: 10px; align-items: flex-start; }
+.perks li::before {
+  content: ""; flex: none; width: 16px; height: 16px; margin-top: 2px; border-radius: 50%;
+  background: var(--accent) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.4l2.3 2.3 4.7-5' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 16px no-repeat;
+}
+.buy { display: block; text-align: center; text-decoration: none; padding: 12px 16px; font-size: 15.5px; font-weight: 750; }
+.fine { margin: -6px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+.preview-note { text-align: left; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg); color: var(--warn); font-weight: 600; }
+.have-key { border-top: 1px solid var(--line-2); padding-top: 12px; font-size: 14px; }
+.have-key summary { cursor: pointer; color: var(--accent-text); font-weight: 650; }
+.key-form { display: flex; gap: 8px; margin-top: 10px; }
+.key-form input {
+  flex: 1; min-width: 0; font-size: 14px; font-variant-numeric: tabular-nums; letter-spacing: .02em;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); padding: 9px 10px;
+}
+.key-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); background: var(--surface); }
+.key-form button[disabled] { opacity: .6; cursor: progress; }
+.key-msg { margin: 8px 0 0; font-size: 13.5px; min-height: 1.4em; color: var(--muted); }
+.key-msg.error { color: var(--crit); }
+.key-msg.ok { color: var(--good); font-weight: 600; }
+.plan-body.locked {
+  margin-top: 6px; max-height: 300px; overflow: hidden;
+  filter: blur(3.5px) saturate(.5); opacity: .5;
+  pointer-events: none; user-select: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 35%, transparent);
+  mask-image: linear-gradient(to bottom, #000 35%, transparent);
+}
+.pro-status {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+  margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line-2);
+  font-size: 13px; color: var(--muted);
+}
+.link-btn { border: 0; background: none; padding: 0; font-size: 13px; font-weight: 600; color: var(--accent-text); text-decoration: underline; cursor: pointer; }
+.link-btn.armed { color: var(--crit); }
+
 /* ---------- footer ---------- */
 .foot { display: grid; gap: 14px; font-size: 13px; color: var(--muted); }
 .foot p { margin: 0; max-width: 78ch; }
@@ -488,6 +527,33 @@ button, input { font: inherit; color: inherit; }
       <div class="card-head">
         <h2 id="plan-title">Payoff plan <span class="pro">PRO</span></h2>
       </div>
+
+      <div class="gate" id="pro-gate" hidden>
+        <div class="result teaser">
+          <div class="result-big" id="teaser-big"></div>
+          <div class="result-sub" id="teaser-sub"></div>
+        </div>
+        <ul class="perks">
+          <li>Compare avalanche and snowball on your own debts</li>
+          <li>Test any extra payment, up to $2,000 a month</li>
+          <li>See your payoff chart and the order debts fall</li>
+          <li>Put your plan on the countdown clock</li>
+        </ul>
+        <a class="btn primary buy" id="buy-pro" href="#" target="_blank" rel="noopener"></a>
+        <p class="fine" id="buy-fine">One-time purchase. Secure checkout by Lemon Squeezy. Your license key arrives by email.</p>
+        <p class="fine preview-note" id="preview-note" hidden>Preview only: payments aren't connected here. The button unlocks Pro instantly, and any key-shaped code works below.</p>
+        <details class="have-key" id="have-key">
+          <summary>Already bought Pro? Enter your license key</summary>
+          <form class="key-form" id="key-form" novalidate>
+            <label for="license-key" class="sr-only">License key</label>
+            <input id="license-key" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="e.g. 38B1460A-5104-4067-A91D-77B872934D51">
+            <button class="btn primary" type="submit" id="key-submit">Unlock</button>
+          </form>
+          <p class="key-msg" id="key-msg" role="status" aria-live="polite"></p>
+        </details>
+      </div>
+
+      <div class="plan-body" id="plan-body">
       <div class="seg" role="radiogroup" aria-label="Payoff method">
         <input type="radio" name="method" id="method-minimums" value="minimums"><label for="method-minimums">Minimums</label>
         <input type="radio" name="method" id="method-avalanche" value="avalanche"><label for="method-avalanche">Avalanche</label>
@@ -525,6 +591,13 @@ button, input { font: inherit; color: inherit; }
         <h3 class="order-head">Payoff order</h3>
         <ol class="order" id="order"></ol>
       </div>
+      </div>
+
+      <div class="pro-status" id="pro-status" hidden>
+        <span class="chip good" id="pro-status-chip"></span>
+        <span id="pro-status-text"></span>
+        <button type="button" class="link-btn" id="pro-remove">Remove from this browser</button>
+      </div>
     </section>
 
     <section class="card" id="assets" aria-labelledby="assets-title">
@@ -539,7 +612,7 @@ button, input { font: inherit; color: inherit; }
 
   <footer class="foot">
     <p><strong>How the numbers work.</strong> Interest compounds monthly at your APR ÷ 12, and payments, contributions and growth land on the same day each month. Between payments the clock slides smoothly from one month's balance to the next. Asset growth uses the rate you enter, which real markets won't follow exactly. These are estimates to help you see the path, not financial advice.</p>
-    <p>No accounts and no bank linking. Everything you type stays in this browser. Prototype build: Pro features are unlocked.</p>
+    <p>No accounts and no bank linking. Everything you type stays in this browser. Unlocking Pro sends only your license key to Lemon Squeezy to confirm it; your numbers never leave this page.</p>
     <div class="foot-actions">
       <button class="btn" type="button" id="load-example">Load example numbers</button>
       <button class="btn" type="button" id="clear-all">Clear everything</button>
@@ -551,6 +624,13 @@ button, input { font: inherit; color: inherit; }
 
 <script>
 /*@ENGINE@*/
+</script>
+<script>
+/*@LICENSE@*/
+</script>
+<script>
+/*@CONFIG@*/
+/*@PREVIEW@*/
 </script>
 <script>
 /*@APP@*/

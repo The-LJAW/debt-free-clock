@@ -14,13 +14,17 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
 - `src/app.js`: page behavior (state, storage, editors, planner, SVG chart, live clock).
 - `src/page.html`: markup and CSS (design tokens on `:root`, light and dark).
 - `test/engine.test.js`: engine unit tests (Node's built-in test runner).
+- `src/license.js`: Lemon Squeezy license checks (activate / validate / deactivate), with
+  pure readers for the responses. Tests in `test/license.test.js`.
+- `src/config.js`: Pro settings (price, checkout link, store ID, product IDs). The lock is OFF
+  until checkoutUrl and storeId are set, so the site never locks people out mid-setup.
 - `build.py`: inlines everything into `index.html` (the live site) and
   `dist/debt-free-clock.html` (a fragment for the Claude artifact preview).
 
 ## Workflow
 1. Change files in `src/` only. Never hand-edit `index.html`; it is generated.
-2. Run `node --test test/engine.test.js`. All tests must pass, and money-math changes
-   get new tests.
+2. Run `node --test test/*.test.js`. All tests must pass. Money-math and license
+   changes get new tests.
 3. Run `python3 build.py`.
 4. Preview: republish `dist/debt-free-clock.html` to the prototype artifact,
    https://claude.ai/artifact/E7zAEtLV6rxco4PuWZ9Dfh (pass it as `url`).
@@ -33,8 +37,11 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
 - Privacy: no server, accounts or bank linking. Numbers stay on the device.
 - Each debt has "Count in debt-free countdown" (`inCountdown: false` = excluded, e.g. a
   mortgage). Excluded debts pay their own schedule and never receive extra money.
-- Free: clock, tickers, debts, assets. Pro (one-time unlock, not built yet): the payoff
-  planner. Planned: Lemon Squeezy license keys on the web, Apple in-app purchase on iOS.
+- Free: clock, tickers, debts, assets (the clock runs on minimum payments). Pro, $9 once via
+  Lemon Squeezy license keys: the payoff planner, and its plan drives the countdown. Free
+  users see a teaser from their own numbers. On iOS, plan for Apple in-app purchase instead.
+- The artifact build sets `window.DFC_PREVIEW = true` (no payments: the button unlocks).
+  The live site never does.
 - Estimates only, not financial advice. Keep the disclaimer in the footer.
 
 ## Model notes
