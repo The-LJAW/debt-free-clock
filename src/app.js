@@ -859,11 +859,201 @@
     }).observe($('chart'));
   }
 
+  // ---------- share card ----------
+  // A square image of the countdown for group chats and social posts. It shows only the
+  // time left and the payoff month, never balances or dollar amounts.
+  var SHARE_URL = 'https://the-ljaw.github.io/debt-free-clock/';
+  var dMonthLong = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+  var share = { file: null, url: null, text: '' };
+
+  /** What the card says right now, or null when there's nothing worth sharing. */
+  function shareInfo(now) {
+    if (state.example || !hasDebt() || !hasCounted()) return null;
+    var snap = E.snapshot(state, plan, now);
+    if (snap.payoffAt === null) return null;
+    if (snap.payoffAt <= now) return { free: true };
+    var diff = E.calendarDiff(now, snap.payoffAt);
+    var sooner = 0;
+    if (proActive() && effectivePlan().method !== 'minimums' && isFinite(base.months) && isFinite(plan.months)) {
+      sooner = Math.max(0, base.months - plan.months);
+    }
+    return { free: false, diff: diff, payoffAt: snap.payoffAt, sooner: sooner };
+  }
+
+  function timeWords(diff) {
+    var parts = [];
+    if (diff.years) parts.push(diff.years + ' ' + plural(diff.years, 'year', 'years'));
+    if (diff.months) parts.push(diff.months + ' ' + plural(diff.months, 'month', 'months'));
+    if (diff.days || !parts.length) parts.push(diff.days + ' ' + plural(diff.days, 'day', 'days'));
+    if (parts.length < 2) return parts[0];
+    return parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+  }
+
+  function shareText(info) {
+    if (info.free) return 'I’m debt-free! Every debt on my countdown is paid off. Start your own clock:';
+    return 'I’ll be debt-free in ' + timeWords(info.diff) + ' (last payment ' + dMonthLong.format(new Date(info.payoffAt)) + '). Counting down with Debt-Free Clock:';
+  }
+
+  function loadShareFonts() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    var want = ['900 200px Doto', '700 40px "Public Sans"', '600 40px "Public Sans"'];
+    var all = Promise.all(want.map(function (f) { return document.fonts.load(f).catch(function () {}); }));
+    return Promise.race([all, new Promise(function (r) { setTimeout(r, 1500); })]);
+  }
+
+  function spaced(ctx, text, x, y, track) {
+    // canvas letterSpacing isn't everywhere yet, so space characters by hand
+    for (var i = 0; i < text.length; i++) {
+      ctx.fillText(text[i], x, y);
+      x += ctx.measureText(text[i]).width + track;
+    }
+    return x;
+  }
+
+  function drawShareCard(info) {
+    var S = 1080, c = document.createElement('canvas');
+    c.width = S; c.height = S;
+    var ctx = c.getContext('2d');
+    var LED = '#F3F1E7', DIM = '#85918A', GREEN = '#5FE094', RED = '#FF5B4D', BOARD = '#0C110E';
+    var BODY = '"Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    var DOTO = 'Doto, "Courier New", monospace';
+    var PAD = 88;
+
+    ctx.fillStyle = BOARD; ctx.fillRect(0, 0, S, S);
+    ctx.fillStyle = 'rgba(243, 241, 231, .05)';
+    for (var gy = 7; gy < S; gy += 14) for (var gx = 7; gx < S; gx += 14) { ctx.beginPath(); ctx.arc(gx, gy, 1.4, 0, 6.2832); ctx.fill(); }
+    ctx.textBaseline = 'alphabetic';
+
+    // brand mark
+    ctx.fillStyle = '#1B2420'; roundRect(ctx, PAD, PAD, 52, 52, 12); ctx.fill();
+    ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(PAD + 26, PAD + 26, 10, 0, 6.2832); ctx.fill();
+    ctx.fillStyle = DIM; ctx.font = '700 24px ' + BODY;
+    spaced(ctx, 'DEBT-FREE CLOCK', PAD + 74, PAD + 35, 4);
+
+    if (info.free) {
+      ctx.fillStyle = DIM; ctx.font = '700 34px ' + BODY;
+      spaced(ctx, 'AS OF TODAY, I’M', PAD, 380, 6);
+      glowText(ctx, 'DEBT', PAD, 560, '900 210px ' + DOTO, GREEN, 'rgba(95, 224, 148, .35)');
+      glowText(ctx, 'FREE', PAD, 740, '900 210px ' + DOTO, GREEN, 'rgba(95, 224, 148, .35)');
+      ctx.fillStyle = LED; ctx.font = '600 40px ' + BODY;
+      ctx.fillText('Every debt on my countdown is paid off.', PAD, 840);
+    } else {
+      ctx.fillStyle = DIM; ctx.font = '700 34px ' + BODY;
+      spaced(ctx, 'I’LL BE DEBT-FREE IN', PAD, 300, 6);
+
+      var d = info.diff, units = [];
+      if (d.years) units.push([d.years, plural(d.years, 'YEAR', 'YEARS')]);
+      if (d.years || d.months) units.push([d.months, plural(d.months, 'MONTH', 'MONTHS')]);
+      units.push([d.days, plural(d.days, 'DAY', 'DAYS')]);
+      // size the numbers so every unit fits across the card
+      var gap = 64, size = 250, nums = units.map(function (u) { return pad2(u[0]); });
+      for (; size > 120; size -= 6) {
+        ctx.font = '900 ' + size + 'px ' + DOTO;
+        var w = nums.reduce(function (t, n) { return t + ctx.measureText(n).width; }, 0) + gap * (units.length - 1);
+        if (w <= S - PAD * 2) break;
+      }
+      var x = PAD, baseY = 300 + 40 + size * 0.86;
+      units.forEach(function (u, i) {
+        var wNum = (ctx.font = '900 ' + size + 'px ' + DOTO, ctx.measureText(nums[i]).width);
+        glowText(ctx, nums[i], x, baseY, '900 ' + size + 'px ' + DOTO, LED, 'rgba(243, 241, 231, .25)');
+        ctx.fillStyle = DIM; ctx.font = '700 26px ' + BODY;
+        spaced(ctx, u[1], x + 4, baseY + 52, 5);
+        x += wNum + gap;
+      });
+
+      var y = baseY + 150;
+      ctx.fillStyle = DIM; ctx.font = '600 38px ' + BODY;
+      var lead = 'Last payment: ';
+      ctx.fillText(lead, PAD, y);
+      ctx.fillStyle = LED; ctx.font = '700 38px ' + BODY;
+      ctx.fillText(dMonthLong.format(new Date(info.payoffAt)), PAD + (ctx.font = '600 38px ' + BODY, ctx.measureText(lead).width), y);
+
+      if (info.sooner > 0) {
+        var pill = span(info.sooner) + ' sooner with my payoff plan';
+        ctx.font = '700 30px ' + BODY;
+        var pw = ctx.measureText(pill).width + 52;
+        ctx.fillStyle = 'rgba(95, 224, 148, .12)'; roundRect(ctx, PAD, y + 34, pw, 62, 31); ctx.fill();
+        ctx.strokeStyle = 'rgba(95, 224, 148, .45)'; ctx.lineWidth = 2; roundRect(ctx, PAD, y + 34, pw, 62, 31); ctx.stroke();
+        ctx.fillStyle = GREEN; ctx.fillText(pill, PAD + 26, y + 76);
+      }
+    }
+
+    // footer
+    ctx.fillStyle = '#26312B'; ctx.fillRect(PAD, S - 170, S - PAD * 2, 2);
+    ctx.fillStyle = DIM; ctx.font = '600 28px ' + BODY;
+    ctx.fillText('Count down to your own debt-free day', PAD, S - 112);
+    ctx.fillStyle = LED; ctx.font = '700 30px ' + BODY;
+    ctx.fillText(SHARE_URL.replace(/^https:\/\//, '').replace(/\/$/, ''), PAD, S - 68);
+    return c;
+  }
+
+  function glowText(ctx, text, x, y, font, color, glow) {
+    ctx.save();
+    ctx.font = font; ctx.fillStyle = color;
+    ctx.shadowColor = glow; ctx.shadowBlur = 36;
+    ctx.fillText(text, x, y);
+    ctx.restore();
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+
+  function openShare() {
+    var info = shareInfo(Date.now());
+    if (!info) return;
+    share.text = shareText(info);
+    loadShareFonts().then(function () {
+      var canvas = drawShareCard(info);
+      canvas.toBlob(function (blob) {
+        if (!blob) { showToast('Couldn’t make the image in this browser.'); return; }
+        if (share.url) URL.revokeObjectURL(share.url);
+        share.url = URL.createObjectURL(blob);
+        share.file = typeof File === 'function' ? new File([blob], 'debt-free-countdown.png', { type: 'image/png' }) : null;
+        var img = $('share-img');
+        img.src = share.url;
+        img.alt = info.free ? 'Share card: I’m debt-free' : 'Share card: I’ll be debt-free in ' + timeWords(info.diff);
+        var canFiles = false;
+        try { canFiles = !!(share.file && navigator.canShare && navigator.canShare({ files: [share.file] })); } catch (e) {}
+        $('share-go').hidden = !canFiles;
+        var dlg = $('share-dlg');
+        if (dlg.showModal) { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', '');
+      }, 'image/png');
+    });
+  }
+
+  function closeShare() {
+    var dlg = $('share-dlg');
+    if (dlg.close) dlg.close(); else dlg.removeAttribute('open');
+  }
+
+  $('share-open').addEventListener('click', openShare);
+  $('share-close').addEventListener('click', closeShare);
+  $('share-dlg').addEventListener('click', function (e) { if (e.target === this) closeShare(); });
+  $('share-go').addEventListener('click', function () {
+    if (!share.file) return;
+    navigator.share({ files: [share.file], text: share.text + ' ' + SHARE_URL }).catch(function () {});
+  });
+  $('share-dl').addEventListener('click', function () {
+    if (!share.url) return;
+    var a = h('a', { href: share.url, download: 'debt-free-countdown.png' });
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+  $('share-copy').addEventListener('click', function () {
+    var t = share.text + ' ' + SHARE_URL;
+    var done = function () { showToast('Copied. Paste it with the image.'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(done, function () { showToast('Couldn’t copy here. Select the text yourself: ' + t); });
+    else showToast(t);
+  });
+
   // ---------- live clock ----------
   var els = {
     y: $('cd-y'), m: $('cd-m'), d: $('cd-d'), t: $('cd-t'),
     yl: $('cd-y-lab'), ml: $('cd-m-lab'), dl: $('cd-d-lab'),
     cd: $('countdown'), msg: $('cd-message'), line: $('payoff-line'),
+    share: $('share-row'), shareText: $('share-open-text'),
     debt: $('tk-debt'), int: $('tk-int'), net: $('tk-net'),
     debtRate: $('tk-debt-rate'), intRate: $('tk-int-rate'), netRate: $('tk-net-rate')
   };
@@ -910,6 +1100,10 @@
       : snap.payoffAt === null ? 'never' : snap.payoffAt <= now ? 'free' : 'count';
     els.cd.hidden = mode !== 'count';
     els.msg.hidden = mode === 'count';
+    var canShare = (mode === 'count' || mode === 'free') && !state.example;
+    if (els.share.hidden === canShare) els.share.hidden = !canShare;
+    if (mode === 'free') els.shareText.textContent = 'Share that I’m debt-free';
+    else if (mode === 'count') els.shareText.textContent = 'Share my countdown';
     if (mode === 'count') {
       var diff = E.calendarDiff(now, snap.payoffAt);
       els.y.textContent = pad2(diff.years);

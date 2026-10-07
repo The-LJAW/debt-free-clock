@@ -42,6 +42,15 @@ site = f"""<!doctype html>
 <meta property="og:title" content="Debt-Free Clock">
 <meta property="og:description" content="{DESCRIPTION}">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://the-ljaw.github.io/debt-free-clock/">
+<meta property="og:image" content="https://the-ljaw.github.io/debt-free-clock/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Debt-Free Clock: a glowing countdown reading 04 years, 08 months, 26 days">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Debt-Free Clock">
+<meta name="twitter:description" content="{DESCRIPTION}">
+<meta name="twitter:image" content="https://the-ljaw.github.io/debt-free-clock/og-image.png">
 <meta name="theme-color" content="#0C110E">
 <link rel="icon" href="{FAVICON}">
 <style>
