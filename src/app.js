@@ -207,14 +207,21 @@
     wrap.appendChild(h('label', { for: inputId }, label));
     var box = h('div', { class: 'input-wrap' });
     if (pre) box.appendChild(h('span', { class: 'adorn', 'aria-hidden': 'true' }, pre));
-    var inp = h('input', Object.assign({ id: inputId, type: 'number', inputmode: 'decimal', step: 'any', min: '0' }, extra || {}));
+    // Dollar boxes are text inputs so they can show thousands commas (number inputs can't).
+    // The commas go in when you leave the box, so typing never jumps the cursor around.
+    var dollars = pre === '$';
+    var attrs = dollars
+      ? { id: inputId, type: 'text', inputmode: 'decimal', autocomplete: 'off' }
+      : { id: inputId, type: 'number', inputmode: 'decimal', step: 'any', min: '0' };
+    var inp = h('input', Object.assign(attrs, extra || {}));
     var v = +item[key] || 0;
-    inp.value = v ? String(Math.round(v * 100) / 100) : '';
+    inp.value = dollars ? E.formatMoneyInput(v) : (v ? String(Math.round(v * 100) / 100) : '');
     inp.placeholder = '0';
     inp.addEventListener('change', function () {
-      var n = parseFloat(inp.value);
+      var n = dollars ? E.parseMoneyInput(inp.value) : parseFloat(inp.value);
       if (!isFinite(n)) n = 0;
       if (extra && extra.min != null) n = Math.max(+extra.min, n); else n = Math.max(0, n);
+      if (dollars) inp.value = E.formatMoneyInput(n);
       update(function (s) {
         var target = find(kind === 'debt' ? s.debts : s.assets, item.id);
         if (target) target[key] = n;

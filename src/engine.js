@@ -296,12 +296,28 @@
 
   function round2(x) { return Math.round(x * 100) / 100; }
 
+  // Dollar input boxes. Show "305,788.27" (cents only when there are cents, so a round
+  // "300,000" stays clean) and read back whatever a person types or pastes:
+  // "$305,788.27", "305788.27", " 1,000 ". Unreadable text comes back as NaN.
+  var fmtMoneyWhole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+  var fmtMoneyCents = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function formatMoneyInput(v) {
+    var cents = Math.round((+v || 0) * 100);
+    if (!cents) return '';
+    return (cents % 100 === 0 ? fmtMoneyWhole : fmtMoneyCents).format(cents / 100);
+  }
+  function parseMoneyInput(s) {
+    var n = parseFloat(String(s == null ? '' : s).replace(/[^0-9.\-]/g, ''));
+    return isFinite(n) ? n : NaN;
+  }
+
   var api = {
     EPS: EPS, MAX_MONTHS: MAX_MONTHS, SEC_PER_YEAR: SEC_PER_YEAR,
     addMonths: addMonths, monthsSince: monthsSince, monthSeconds: monthSeconds,
     calendarDiff: calendarDiff, simulateDebts: simulateDebts, payoffOrder: payoffOrder,
     isGrowing: isGrowing, monthlyInterest: monthlyInterest, assetValueAt: assetValueAt,
-    snapshot: snapshot, rebase: rebase
+    snapshot: snapshot, rebase: rebase,
+    formatMoneyInput: formatMoneyInput, parseMoneyInput: parseMoneyInput
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
