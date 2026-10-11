@@ -296,9 +296,9 @@
 
   function round2(x) { return Math.round(x * 100) / 100; }
 
-  // Dollar input boxes. Show "305,788.27" (cents only when there are cents, so a round
+  // Dollar input boxes. Show "187,425.37" (cents only when there are cents, so a round
   // "300,000" stays clean) and read back whatever a person types or pastes:
-  // "$305,788.27", "305788.27", " 1,000 ". Unreadable text comes back as NaN.
+  // "$187,425.37", "187425.37", " 1,000 ". Unreadable text comes back as NaN.
   var fmtMoneyWhole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
   var fmtMoneyCents = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function formatMoneyInput(v) {

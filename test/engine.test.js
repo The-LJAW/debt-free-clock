@@ -165,23 +165,23 @@ test('rebase keeps the projection continuous', () => {
 });
 
 test('dollar boxes show thousands commas, with cents only when there are cents', () => {
-  assert.equal(E.formatMoneyInput(305788.27), '305,788.27');
-  assert.equal(E.formatMoneyInput(13161.2), '13,161.20');
+  assert.equal(E.formatMoneyInput(187425.37), '187,425.37');
+  assert.equal(E.formatMoneyInput(9876.5), '9,876.50');
   assert.equal(E.formatMoneyInput(300000), '300,000');
   assert.equal(E.formatMoneyInput(1234567.891), '1,234,567.89');
   assert.equal(E.formatMoneyInput(999.995), '1,000');
-  assert.equal(E.formatMoneyInput(410.13), '410.13');
+  assert.equal(E.formatMoneyInput(650.25), '650.25');
   assert.equal(E.formatMoneyInput(0), '');
 });
 
 test('dollar boxes read back typed or pasted amounts', () => {
-  assert.equal(E.parseMoneyInput('305,788.27'), 305788.27);
-  assert.equal(E.parseMoneyInput('$305,788.27'), 305788.27);
-  assert.equal(E.parseMoneyInput('305788.27'), 305788.27);
+  assert.equal(E.parseMoneyInput('187,425.37'), 187425.37);
+  assert.equal(E.parseMoneyInput('$187,425.37'), 187425.37);
+  assert.equal(E.parseMoneyInput('187425.37'), 187425.37);
   assert.equal(E.parseMoneyInput(' 1,000 '), 1000);
   assert.ok(Number.isNaN(E.parseMoneyInput('')));
   assert.ok(Number.isNaN(E.parseMoneyInput('abc')));
-  for (const v of [305788.27, 57803.95, 13161.2, 2027.56, 300000]) {
+  for (const v of [187425.37, 42918.64, 9876.5, 1234.56, 300000]) {
     assert.equal(E.parseMoneyInput(E.formatMoneyInput(v)), v, `round trip ${v}`);
   }
 });
