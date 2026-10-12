@@ -15,8 +15,11 @@ no bank linking.
 | `test/engine.test.js` | Unit tests for the engine (textbook loan schedules, plans, rebasing, dates). |
 | `src/license.js` | Pro license checks against the Lemon Squeezy License API (activate, validate, deactivate). |
 | `src/config.js` | Pro settings: price, checkout link, store ID, product IDs. The lock is off until these are filled in. |
+| `src/backup.js` | Backup files: save and read, with every value checked and cleaned on the way in. |
+| `src/sw.js` | Service worker source: keeps an offline copy so the installed app opens without a connection. |
+| `icons/` | App icons for the home screen and install prompt. |
 | `test/license.test.js` | Unit tests for the license checks (fake Lemon Squeezy replies). |
-| `build.py` | Inlines engine + app into one page. Writes `index.html` (the website) and `dist/debt-free-clock.html` (the Claude artifact version). |
+| `build.py` | Inlines everything into one page. Writes `index.html` (the website), `dist/debt-free-clock.html` (the Claude artifact version), `manifest.webmanifest` and `sw.js`. |
 | `index.html` | The built website. GitHub Pages serves this file. Don't edit it by hand: change `src/` and rebuild. |
 
 ## Commands

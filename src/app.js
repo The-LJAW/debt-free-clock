@@ -316,6 +316,7 @@
       var i = s[listKey].findIndex(function (x) { return x.id === id; });
       if (i >= 0) { lastRemoved = { listKey: listKey, item: s[listKey][i], index: i }; s[listKey].splice(i, 1); }
     }, { lists: true, userEdit: true });
+    undoRestore = null;
     showToast('Removed “' + label + '”', true);
   }
 
@@ -324,10 +325,17 @@
     $('toast-undo').hidden = !withUndo;
     $('toast').hidden = false;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { $('toast').hidden = true; lastRemoved = null; }, 7000);
+    toastTimer = setTimeout(function () { $('toast').hidden = true; lastRemoved = null; undoRestore = null; }, 7000);
   }
 
   $('toast-undo').addEventListener('click', function () {
+    if (undoRestore) {               // put back the numbers a restore replaced
+      state = undoRestore; undoRestore = null;
+      recompute();
+      update(null, { lists: true });
+      $('toast').hidden = true;
+      return;
+    }
     if (!lastRemoved) return;
     var r = lastRemoved; lastRemoved = null;
     update(function (s) { s[r.listKey].splice(Math.min(r.index, s[r.listKey].length), 0, r.item); }, { lists: true, userEdit: true });
@@ -428,6 +436,7 @@
     $('plan-tag').textContent = ep.method === 'minimums' ? 'Minimums only'
       : (ep.method === 'avalanche' ? 'Avalanche' : 'Snowball') + ' plan' + (epExtra ? ' · +' + fmt0.format(epExtra) + '/mo' : '');
     renderPro();
+    renderBackup();
 
     // debts header
     var totalBal = 0, monthlyInt = 0, count = 0;
@@ -1270,6 +1279,180 @@
       paint(now, false);
     }
     requestAnimationFrame(frame);
+  }
+
+  // ---------- backup and restore ----------
+  // The numbers live only in this browser, so a backup file is how they survive a cleared
+  // browser or move to another device. Saving is Pro; restoring works for anyone, and a Pro
+  // backup carries the license key so Pro comes along (using one of the key's device slots).
+  var B = window.DFCBackup;
+  var BACKUP_KEY = 'debt-free-clock:backup';   // when this browser last saved a backup
+  var pendingRestore = null, undoRestore = null;
+  var RESTORE_ERRORS = {
+    'not-json': 'That file isn’t a Debt-Free Clock backup. Backups are .json files named like debt-free-clock-backup-2026-10-12.json.',
+    'not-backup': 'That file isn’t a Debt-Free Clock backup. Backups are .json files named like debt-free-clock-backup-2026-10-12.json.',
+    'newer': 'That backup is from a newer version of Debt-Free Clock. Refresh this page, then try again.'
+  };
+
+  function lastBackupAt() {
+    try { var v = +window.localStorage.getItem(BACKUP_KEY); return v > 0 ? v : null; } catch (e) { return null; }
+  }
+  function backupMsg(kind, text) {
+    var el = $('backup-msg');
+    el.className = 'safety-msg' + (kind ? ' ' + kind : '');
+    el.textContent = text;
+  }
+  function renderBackup() {
+    $('backup-pro-tag').hidden = proActive();
+    var at = lastBackupAt();
+    $('backup-sub').textContent = at ? 'Last backup ' + dShort.format(new Date(at)) : 'No backup saved yet';
+    renderInstall();
+  }
+
+  function downloadText(text, name) {
+    var url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    var a = h('a', { href: url, download: name });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+
+  $('backup-save').addEventListener('click', function () {
+    if (!proActive()) {
+      backupMsg('', 'Saving backups is part of Pro. You can unlock it in the Payoff plan.');
+      $('plan').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      return;
+    }
+    var now = Date.now(), name = B.fileName(now);
+    var text = B.makeBackup(state, pro, now);
+    var done = function () {
+      try { window.localStorage.setItem(BACKUP_KEY, String(now)); } catch (e) { /* ignore */ }
+      renderBackup();
+      backupMsg('good', 'Saved ' + name + '. Keep it somewhere safe, like your Files app or cloud storage.');
+    };
+    // Phones: the share sheet's "Save to Files" works where plain downloads don't (an
+    // installed iPhone app, for one). Computers: an ordinary download.
+    var file = null, viaShare = false;
+    try {
+      file = new File([text], name, { type: 'application/json' });
+      viaShare = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches &&
+        navigator.canShare && navigator.canShare({ files: [file] }));
+    } catch (e) { viaShare = false; }
+    if (viaShare) {
+      navigator.share({ files: [file], title: 'Debt-Free Clock backup' }).then(done, function (err) {
+        if (err && err.name === 'AbortError') return;
+        downloadText(text, name); done();
+      });
+    } else {
+      downloadText(text, name); done();
+    }
+  });
+
+  $('backup-restore').addEventListener('click', function () {
+    var input = $('backup-file');
+    input.value = '';
+    input.click();
+  });
+
+  $('backup-file').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    if (f.size > 2000000) { backupMsg('error', RESTORE_ERRORS['not-backup']); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var r = B.readBackup(reader.result);
+      if (!r.ok) { backupMsg('error', RESTORE_ERRORS[r.reason] || RESTORE_ERRORS['not-backup']); return; }
+      backupMsg('', '');
+      pendingRestore = r;
+      var parts = [r.debts + ' ' + plural(r.debts, 'debt', 'debts'), r.assets + ' ' + plural(r.assets, 'asset', 'assets')];
+      if (r.proKey && gating && !pro) parts.push('includes Pro');
+      $('restore-what').textContent = (r.savedAt ? 'Saved ' + dLong.format(new Date(r.savedAt)) : 'A Debt-Free Clock backup') + ' · ' + parts.join(' · ');
+      openDialog($('restore-dlg'));
+    };
+    reader.onerror = function () { backupMsg('error', 'Couldn’t read that file. Try saving the backup again.'); };
+    reader.readAsText(f);
+  });
+
+  function openDialog(dlg) { if (dlg.showModal) { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', ''); }
+  function closeDialog(dlg) { if (dlg.close) dlg.close(); else dlg.removeAttribute('open'); }
+
+  $('restore-cancel').addEventListener('click', function () { pendingRestore = null; closeDialog($('restore-dlg')); });
+  $('restore-dlg').addEventListener('click', function (e) { if (e.target === this) { pendingRestore = null; closeDialog(this); } });
+  $('restore-go').addEventListener('click', function () {
+    var r = pendingRestore;
+    pendingRestore = null;
+    closeDialog($('restore-dlg'));
+    if (!r) return;
+    var before = state;
+    state = r.state;
+    recompute();                       // the roll-forward below needs this state's own schedule
+    update(null, { lists: true });     // rolls an older backup forward to today, then saves
+    lastRemoved = null;
+    undoRestore = before;
+    showToast('Restored your backup' + (r.savedAt ? ' from ' + dShort.format(new Date(r.savedAt)) : '') + '.', true);
+    if (r.proKey && gating && !pro) restorePro(r.proKey);
+  });
+
+  function restorePro(key) {
+    if (PREVIEW) { grant(key, 'preview'); return; }
+    backupMsg('', 'Bringing your Pro unlock over…');
+    L.activate(CFG, key, L.instanceName(navigator.userAgent), window.fetch.bind(window)).then(function (res) {
+      if (res.ok) {
+        grant(key, res.instanceId);
+        backupMsg('good', 'Your numbers and Pro are restored on this device.');
+      } else {
+        $('license-key').value = key;
+        $('have-key').open = true;
+        backupMsg('error', 'Your numbers are restored, but Pro couldn’t be confirmed. ' + (KEY_ERRORS[res.reason] || KEY_ERRORS.rejected) + ' Your key is filled in under the Payoff plan so you can try again.');
+      }
+    });
+  }
+
+  // ---------- install as an app ----------
+  // A home-screen icon that opens full screen and works offline (the service worker, sw.js,
+  // keeps a copy of the page). Chrome, Edge and Android offer a real install prompt; iPhone
+  // and Mac Safari get instructions instead.
+  var installEvt = null;
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  var isMacSafari = !isIOS && /Macintosh/.test(ua) && /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox/.test(ua);
+
+  function isStandalone() {
+    return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  }
+
+  function renderInstall() {
+    var row = $('install-row'), help = $('install-help'), btn = $('install-btn');
+    var text = null;
+    if (PREVIEW || isStandalone()) text = null;
+    else if (installEvt) text = 'It opens in its own window, like an app, and works without a connection.';
+    else if (isIOS) text = 'Tap the Share button, then “Add to Home Screen.” The home-screen app keeps its own copy of your numbers, so '
+      + (proActive() ? 'save a backup here first, then restore it in the app.' : 'you’ll enter them there.');
+    else if (isMacSafari) text = 'In Safari, choose File › Add to Dock. It opens like an app and works without a connection.';
+    row.hidden = !text;
+    btn.hidden = !installEvt;
+    if (text) help.textContent = text;
+  }
+
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();          // show our own button instead of the browser's mini-bar
+    installEvt = e;
+    renderInstall();
+  });
+  window.addEventListener('appinstalled', function () {
+    installEvt = null;
+    renderInstall();
+    showToast('Installed. Look for Debt-Free Clock with your apps.', false);
+  });
+  $('install-btn').addEventListener('click', function () {
+    if (!installEvt) return;
+    var e = installEvt;
+    e.prompt();
+    (e.userChoice || Promise.resolve()).then(function () { installEvt = null; renderInstall(); });
+  });
+
+  if ('serviceWorker' in navigator && !PREVIEW &&
+      (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* offline copy is a bonus */ });
   }
 
   // ---------- boot ----------

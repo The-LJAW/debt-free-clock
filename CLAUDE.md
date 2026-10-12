@@ -18,8 +18,14 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
   pure readers for the responses. Tests in `test/license.test.js`.
 - `src/config.js`: Pro settings (price, checkout link, store ID, product IDs). The lock is OFF
   until checkoutUrl and storeId are set, so the site never locks people out mid-setup.
+- `src/backup.js`: backup files (make / read). `readBackup` rebuilds a clean state from known
+  fields only and clamps every number. Tests in `test/backup.test.js`.
+- `src/sw.js`: service worker for the installable app (offline copy of the page). `build.py`
+  stamps it with a build hash and writes it to the root as `sw.js`.
+- `icons/`: app icons (red LED dot on the dark board), used by the manifest and iOS.
 - `build.py`: inlines everything into `index.html` (the live site) and
-  `dist/debt-free-clock.html` (a fragment for the Claude artifact preview).
+  `dist/debt-free-clock.html` (a fragment for the Claude artifact preview), and writes
+  `manifest.webmanifest` and `sw.js`. Never hand-edit those generated files.
 
 ## Workflow
 1. Change files in `src/` only. Never hand-edit `index.html`; it is generated.
@@ -46,6 +52,13 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
 - The artifact build sets `window.DFC_PREVIEW = true` (no payments: the button unlocks).
   The live site never does.
 - Estimates only, not financial advice. Keep the disclaimer in the footer.
+- "Keep your numbers safe" card: saving a backup is Pro; restoring works for anyone. A Pro
+  backup includes the license key (never the instance id), so restoring on a new device
+  re-activates Pro there (one of the key's 5 slots). Restores can be undone from the toast.
+- Install as an app is free for everyone. Chrome/Edge/Android get an Install button
+  (`beforeinstallprompt`); iPhone and Mac Safari get instructions. iPhone home-screen apps keep
+  their own storage, separate from Safari, so the iPhone text points Pro users to a backup.
+  The service worker never touches Lemon Squeezy requests and isn't registered in the preview.
 - Once every counted debt is paid off, the board celebrates: green DEBT-FREE sign, the clock
   counts UP from the last payment (`paidOffAt`, recorded by `E.rebase`), and confetti plays
   once per payoff (`state.celebratedFor`) or when the sign is tapped. A blank $0 row never

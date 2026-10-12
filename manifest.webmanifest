@@ -1,0 +1,31 @@
+{
+  "name": "Debt-Free Clock",
+  "short_name": "Debt-Free",
+  "description": "A live countdown to the day you're debt-free, with your balance, interest and net worth ticking in real time. Private: your numbers never leave your browser.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EE",
+  "theme_color": "#0C110E",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,18 +1,22 @@
 """Build the Debt-Free Clock.
 
-Writes two files from src/:
+Writes these files from src/:
   index.html                 the live website (GitHub Pages serves this)
+  manifest.webmanifest       makes the site installable as an app (icons in icons/)
+  sw.js                      service worker: lets the installed app open offline
   dist/debt-free-clock.html  page fragment for the Claude artifact preview. It runs in
                              "preview" mode: payments aren't connected there, so the Pro
                              button and any key-shaped code unlock Pro for testing.
 """
+import hashlib
+import json
 from pathlib import Path
 
 root = Path(__file__).parent
 src = lambda name: (root / "src" / name).read_text()
 
 page = src("page.html")
-for marker, name in [("/*@ENGINE@*/", "engine.js"), ("/*@LICENSE@*/", "license.js"),
+for marker, name in [("/*@ENGINE@*/", "engine.js"), ("/*@LICENSE@*/", "license.js"), ("/*@BACKUP@*/", "backup.js"),
                      ("/*@CONFIG@*/", "config.js"), ("/*@APP@*/", "app.js")]:
     assert marker in page, marker
     page = page.replace(marker, src(name))
@@ -53,6 +57,10 @@ site = f"""<!doctype html>
 <meta name="twitter:image" content="https://the-ljaw.github.io/debt-free-clock/og-image.png">
 <meta name="theme-color" content="#0C110E">
 <link rel="icon" href="{FAVICON}">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-title" content="Debt-Free Clock">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 :root {{ color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }}
 body {{ margin: 0; }}
@@ -67,4 +75,32 @@ img {{ max-width: 100%; }}
 </html>
 """
 (root / "index.html").write_text(site)
-print(f"wrote {frag.relative_to(root)} (preview mode) and index.html ({len(site.encode()):,} bytes)")
+
+# 3) Install as an app: manifest + service worker (stamped so each build replaces the old copy)
+manifest = {
+    "name": "Debt-Free Clock",
+    "short_name": "Debt-Free",
+    "description": DESCRIPTION,
+    "id": "./",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#EEF1EE",
+    "theme_color": "#0C110E",
+    "icons": [
+        {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+        {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+        {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"},
+    ],
+}
+manifest_text = json.dumps(manifest, indent=2) + "\n"
+(root / "manifest.webmanifest").write_text(manifest_text)
+stamp = hashlib.sha256()
+for part in [site.encode(), manifest_text.encode()] + [p.read_bytes() for p in sorted((root / "icons").glob("*.png"))]:
+    stamp.update(part)
+sw = src("sw.js")
+assert "__VERSION__" in sw
+(root / "sw.js").write_text(sw.replace("__VERSION__", stamp.hexdigest()[:12]))
+
+print(f"wrote {frag.relative_to(root)} (preview mode), index.html ({len(site.encode()):,} bytes), "
+      f"manifest.webmanifest and sw.js")

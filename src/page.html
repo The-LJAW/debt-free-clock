@@ -286,13 +286,14 @@ button, input { font: inherit; color: inherit; }
 .main {
   display: grid; gap: 20px; align-items: start;
   grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
-  grid-template-areas: "debts plan" "assets plan";
+  grid-template-areas: "debts plan" "assets plan" "safety plan";
 }
 #debts { grid-area: debts; }
 #plan { grid-area: plan; position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); }
 #assets { grid-area: assets; }
+#safety { grid-area: safety; }
 @media (max-width: 980px) {
-  .main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "debts" "plan" "assets"; }
+  .main { grid-template-columns: minmax(0, 1fr); grid-template-areas: "debts" "plan" "assets" "safety"; }
   #plan { position: static; }
 }
 
@@ -306,6 +307,25 @@ button, input { font: inherit; color: inherit; }
   padding: 3px 7px 2px; border-radius: 6px;
   background: var(--ink); color: var(--surface);
 }
+
+/* ---------- keep your numbers safe ---------- */
+.card-note { margin: 10px 0 0; font-size: 14px; color: var(--ink-2); max-width: 62ch; }
+.safety-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.safety-acts .btn { display: inline-flex; align-items: center; gap: 8px; }
+.pro-inline { background: var(--accent-ink); color: var(--accent); }
+.btn:not(.primary) .pro-inline { background: var(--ink); color: var(--surface); }
+.safety-msg { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); min-height: 0; }
+.safety-msg:empty { display: none; }
+.safety-msg.error { color: var(--crit); }
+.safety-msg.good { color: var(--accent-text); }
+.install-row {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px;
+  margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line-2);
+}
+.install-text { display: grid; gap: 2px; font-size: 14px; color: var(--ink-2); max-width: 52ch; }
+.install-text strong { color: var(--ink); font-weight: 650; }
+.restore-dlg h2 { margin: 0; font-size: 18px; }
+.restore-what { margin: 10px 0 0; font-size: 15px; }
 
 /* ---------- item rows ---------- */
 .items { margin-top: 10px; }
@@ -588,6 +608,7 @@ button, input { font: inherit; color: inherit; }
           <li>Test any extra payment, up to $2,000 a month</li>
           <li>See your payoff chart and the order debts fall</li>
           <li>Put your plan on the countdown clock</li>
+          <li>Back up your numbers and take them, Pro included, to a new device</li>
         </ul>
         <a class="btn primary buy" id="buy-pro" href="#" target="_blank" rel="noopener"></a>
         <p class="fine" id="buy-fine">One-time purchase. Secure checkout by Lemon Squeezy. Your license key arrives by email.</p>
@@ -658,6 +679,27 @@ button, input { font: inherit; color: inherit; }
       <div class="items" id="asset-list"></div>
       <button class="add-btn" type="button" id="add-asset">+ Add an asset</button>
     </section>
+
+    <section class="card" id="safety" aria-labelledby="safety-title">
+      <div class="card-head">
+        <h2 id="safety-title">Keep your numbers safe</h2>
+        <span class="card-sub" id="backup-sub"></span>
+      </div>
+      <p class="card-note">Your numbers live only in this browser, so clearing your browsing data erases them. Save a backup file to keep them safe, or to move them to another phone or computer.</p>
+      <div class="safety-acts">
+        <button class="btn primary" type="button" id="backup-save">Save a backup <span class="pro pro-inline" id="backup-pro-tag">PRO</span></button>
+        <button class="btn" type="button" id="backup-restore">Restore from a backup</button>
+        <input type="file" id="backup-file" accept=".json,application/json" hidden>
+      </div>
+      <p class="safety-msg" id="backup-msg" role="status" aria-live="polite"></p>
+      <div class="install-row" id="install-row" hidden>
+        <div class="install-text">
+          <strong>Put the clock on your home screen</strong>
+          <span id="install-help"></span>
+        </div>
+        <button class="btn" type="button" id="install-btn" hidden>Install the app</button>
+      </div>
+    </section>
   </main>
 
   <footer class="foot">
@@ -686,6 +728,16 @@ button, input { font: inherit; color: inherit; }
   </div>
 </dialog>
 
+<dialog class="share-dlg restore-dlg" id="restore-dlg" aria-labelledby="restore-title">
+  <h2 id="restore-title">Restore this backup?</h2>
+  <p class="restore-what" id="restore-what"></p>
+  <p class="share-note">It replaces the numbers on this device. You can undo it right after.</p>
+  <div class="share-acts">
+    <button type="button" class="btn primary" id="restore-go">Restore</button>
+    <button type="button" class="btn" id="restore-cancel">Cancel</button>
+  </div>
+</dialog>
+
 <div class="toast" id="toast" role="status" hidden><span id="toast-text"></span><button type="button" id="toast-undo">Undo</button></div>
 
 <script>
@@ -693,6 +745,9 @@ button, input { font: inherit; color: inherit; }
 </script>
 <script>
 /*@LICENSE@*/
+</script>
+<script>
+/*@BACKUP@*/
 </script>
 <script>
 /*@CONFIG@*/
