@@ -28,9 +28,12 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
 3. Run `python3 build.py`.
 4. Preview: republish `dist/debt-free-clock.html` to the prototype artifact,
    https://claude.ai/artifact/E7zAEtLV6rxco4PuWZ9Dfh (pass it as `url`).
-5. Once Levi approves, send him only the changed files, zipped in their folder structure
-   (always include `index.html`). He uploads them on GitHub (Add file > Upload files).
-   GitHub Pages then serves `index.html` from the root of `main`.
+5. Push the change to a branch. Once Levi approves, fast-forward `main` to it and push;
+   GitHub Pages then serves `index.html` from the root of `main`. (If this session can't
+   push, attach the repo with push access first.) Confirm the deploy through GitHub's public
+   deployments API (environment `github-pages`); the shell can't open github.io.
+6. Never put Levi's real numbers (from his screenshots) or license keys in code, tests,
+   comments or commit messages. The repo is public; use made-up amounts.
 
 ## Decisions to respect
 - Name: Debt-Free Clock. Keep it free of usdebtclock.org branding.
@@ -43,6 +46,10 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
 - The artifact build sets `window.DFC_PREVIEW = true` (no payments: the button unlocks).
   The live site never does.
 - Estimates only, not financial advice. Keep the disclaimer in the footer.
+- Once every counted debt is paid off, the board celebrates: green DEBT-FREE sign, the clock
+  counts UP from the last payment (`paidOffAt`, recorded by `E.rebase`), and confetti plays
+  once per payoff (`state.celebratedFor`) or when the sign is tapped. A blank $0 row never
+  counts as paid off; typing a balance clears `paidOffAt`.
 
 ## Model notes
 - One anchor date `asOf`: payments, contributions and compounding happen on that day of

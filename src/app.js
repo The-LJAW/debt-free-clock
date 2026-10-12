@@ -149,6 +149,20 @@
     }
     return false;
   }
+  /**
+   * Once the clock has paid off every debt in the countdown: the day the last one landed.
+   * Null otherwise, including blank $0 rows nobody has filled in yet.
+   */
+  function freeSince() {
+    var latest = null;
+    for (var i = 0; i < state.debts.length; i++) {
+      var d = state.debts[i];
+      if (!counted(d)) continue;
+      if ((+d.balance || 0) > E.EPS) return null;
+      if (d.paidOffAt && (latest === null || +d.paidOffAt > latest)) latest = +d.paidOffAt;
+    }
+    return latest;
+  }
   function uncountedNames() {
     return state.debts.filter(function (d) { return !counted(d) && (+d.balance || 0) > E.EPS; })
       .map(function (d) { return d.name || 'unnamed debt'; });
@@ -224,7 +238,10 @@
       if (dollars) inp.value = E.formatMoneyInput(n);
       update(function (s) {
         var target = find(kind === 'debt' ? s.debts : s.assets, item.id);
-        if (target) target[key] = n;
+        if (target) {
+          target[key] = n;
+          if (key === 'balance') delete target.paidOffAt;   // a typed balance replaces the clock's record
+        }
       }, { userEdit: true });
     });
     box.appendChild(inp);
@@ -432,7 +449,8 @@
       box.textContent = '';
       var b = +d.balance || 0;
       if (b <= E.EPS) {
-        if (+d.payment || +d.apr || d.name) box.appendChild(chip('good', 'check', 'Paid off'));
+        if (d.paidOffAt) box.appendChild(chip('good', 'check', 'Paid off ' + dMonthYear.format(new Date(d.paidOffAt))));
+        else if (+d.payment || +d.apr || d.name) box.appendChild(chip('good', 'check', 'Paid off'));
         else box.appendChild(chip('', null, 'Fill in the balance, rate and payment to add it to the clock'));
         return;
       }
@@ -875,10 +893,13 @@
 
   /** What the card says right now, or null when there's nothing worth sharing. */
   function shareInfo(now) {
-    if (state.example || !hasDebt() || !hasCounted()) return null;
+    if (state.example) return null;
+    var since = freeSince();
+    if (since !== null) return { free: true, since: since };
+    if (!hasDebt() || !hasCounted()) return null;
     var snap = E.snapshot(state, plan, now);
     if (snap.payoffAt === null) return null;
-    if (snap.payoffAt <= now) return { free: true };
+    if (snap.payoffAt <= now) return { free: true, since: snap.payoffAt };
     var diff = E.calendarDiff(now, snap.payoffAt);
     var sooner = 0;
     if (proActive() && effectivePlan().method !== 'minimums' && isFinite(base.months) && isFinite(plan.months)) {
@@ -897,7 +918,7 @@
   }
 
   function shareText(info) {
-    if (info.free) return 'I’m debt-free! Every debt on my countdown is paid off. Start your own clock:';
+    if (info.free) return 'I’m debt-free! Every debt on my countdown is paid off' + (info.since ? ' (last payment ' + dMonthLong.format(new Date(info.since)) + ')' : '') + '. Start your own clock:';
     return 'I’ll be debt-free in ' + timeWords(info.diff) + ' (last payment ' + dMonthLong.format(new Date(info.payoffAt)) + '). Counting down with Debt-Free Clock:';
   }
 
@@ -943,7 +964,7 @@
       glowText(ctx, 'DEBT', PAD, 560, '900 210px ' + DOTO, GREEN, 'rgba(95, 224, 148, .35)');
       glowText(ctx, 'FREE', PAD, 740, '900 210px ' + DOTO, GREEN, 'rgba(95, 224, 148, .35)');
       ctx.fillStyle = LED; ctx.font = '600 40px ' + BODY;
-      ctx.fillText('Every debt on my countdown is paid off.', PAD, 840);
+      ctx.fillText(info.since ? 'Paid in full since ' + dMonthLong.format(new Date(info.since)) + '.' : 'Every debt on my countdown is paid off.', PAD, 840);
     } else {
       ctx.fillStyle = DIM; ctx.font = '700 34px ' + BODY;
       spaced(ctx, 'I’LL BE DEBT-FREE IN', PAD, 300, 6);
@@ -1060,6 +1081,7 @@
     y: $('cd-y'), m: $('cd-m'), d: $('cd-d'), t: $('cd-t'),
     yl: $('cd-y-lab'), ml: $('cd-m-lab'), dl: $('cd-d-lab'),
     cd: $('countdown'), msg: $('cd-message'), line: $('payoff-line'),
+    board: $('board'), title: $('board-title'), tag: $('plan-tag'), caption: $('cd-caption'),
     share: $('share-row'), shareText: $('share-open-text'),
     debt: $('tk-debt'), int: $('tk-int'), net: $('tk-net'),
     debtRate: $('tk-debt-rate'), intRate: $('tk-int-rate'), netRate: $('tk-net-rate')
@@ -1078,12 +1100,78 @@
     if (tail) el.appendChild(document.createTextNode(tail));
   }
 
+  var ZERO_DIFF = { years: 0, months: 0, days: 0, hours: 0, minutes: 0, seconds: 0 };
+
+  // ---------- debt-free celebration ----------
+  // A burst of LED-pixel confetti from the DEBT-FREE sign: once per payoff (remembered in
+  // this browser), and again whenever someone taps the sign. Skipped for reduced motion.
+  var confetti = { canvas: null, raf: 0 };
+
+  function maybeCelebrate(freeAt) {
+    if (state.example || state.celebratedFor === freeAt) return;
+    state.celebratedFor = freeAt;
+    save();
+    setTimeout(celebrate, 350);
+  }
+
+  function celebrate() {
+    if (reduceMotion || !els.board.getBoundingClientRect) return;
+    var box = els.board.getBoundingClientRect();
+    var W = box.width, H = box.height;
+    if (!W || !H) return;
+    if (!confetti.canvas) {
+      confetti.canvas = h('canvas', { class: 'confetti', 'aria-hidden': 'true' });
+      els.board.appendChild(confetti.canvas);
+    }
+    var cv = confetti.canvas, dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    var ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var sign = els.msg.getBoundingClientRect();
+    var ox = sign.left - box.left + Math.min(sign.width, W) * 0.35, oy = sign.top - box.top + sign.height * 0.5;
+    var colors = ['#5FE094', '#5FE094', '#F3F1E7', '#FF5B4D', '#85918A'];
+    var bits = [];
+    for (var i = 0; i < 150; i++) {
+      var a = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.15;
+      var v = 5 + Math.random() * 9;
+      bits.push({
+        x: ox + (Math.random() - 0.5) * 60, y: oy, vx: Math.cos(a) * v * 1.25, vy: Math.sin(a) * v,
+        s: 3 + Math.random() * 4, c: colors[i % colors.length], r: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.3
+      });
+    }
+    cancelAnimationFrame(confetti.raf);
+    var start = performance.now();
+    (function step(t) {
+      var age = t - start;
+      ctx.clearRect(0, 0, W, H);
+      var alive = 0;
+      ctx.globalAlpha = age > 2200 ? Math.max(0, 1 - (age - 2200) / 800) : 1;
+      bits.forEach(function (b) {
+        b.vy += 0.28; b.vx *= 0.985; b.x += b.vx; b.y += b.vy; b.r += b.vr;
+        if (b.y > H + 20) return;
+        alive++;
+        ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.r);
+        ctx.fillStyle = b.c; ctx.fillRect(-b.s / 2, -b.s / 2, b.s, b.s);
+        ctx.restore();
+      });
+      if (alive && age < 3000) confetti.raf = requestAnimationFrame(step);
+      else ctx.clearRect(0, 0, W, H);
+    })(start);
+  }
+
+  els.msg.addEventListener('click', function () { if (els.msg.dataset.mode === 'free') celebrate(); });
+
   var lastSecond = -1, lastTick = 0;
 
   function paint(now, force) {
     var snap = E.snapshot(state, plan, now);
     setMoney(els.debt, snap.debtTotal);
     setMoney(els.int, snap.interestToday);
+    var noDebt = snap.debtTotal <= E.EPS;   // nothing owed: show the zeros in green, not red
+    if (els.debt.classList.contains('green') !== noDebt) {
+      [els.debt, els.int].forEach(function (el) { el.classList.toggle('green', noDebt); el.classList.toggle('red', !noDebt); });
+    }
     setMoney(els.net, snap.netWorth);
     els.net.classList.toggle('green', snap.netWorth >= 0);
     els.net.classList.toggle('red', snap.netWorth < 0);
@@ -1102,17 +1190,29 @@
     var nDay = snap.netPerSec * 86400;
     setRate(els.netRate, nDay >= 0 ? '▲ ' : '▼ ', fmt2.format(Math.abs(nDay)) + ' a day', nDay >= 0 ? ' and climbing' : '');
 
-    // countdown
-    var mode = !hasDebt() ? 'empty' : !hasCounted() ? 'uncounted'
+    // countdown. Once every counted debt is paid off, the same digits count UP:
+    // how long you've been debt-free.
+    var freeAt = freeSince();
+    var mode = freeAt !== null ? 'free' : !hasDebt() ? 'empty' : !hasCounted() ? 'uncounted'
       : snap.payoffAt === null ? 'never' : snap.payoffAt <= now ? 'free' : 'count';
-    els.cd.hidden = mode !== 'count';
+    if (mode === 'free' && freeAt === null) freeAt = snap.payoffAt;   // paid off this month
+    var ticking = mode === 'count' || mode === 'free';
+    els.cd.hidden = !ticking;
     els.msg.hidden = mode === 'count';
-    var canShare = (mode === 'count' || mode === 'free') && !state.example;
+    els.caption.hidden = mode !== 'free';
+    if (els.board.classList.contains('is-free') !== (mode === 'free')) els.board.classList.toggle('is-free', mode === 'free');
+    var title = mode === 'free' ? 'Paid in full' : 'Debt-free in';
+    if (els.title.textContent !== title) els.title.textContent = title;
+    if (mode === 'free') {
+      var tag = 'Since ' + dMonthYear.format(new Date(freeAt));
+      if (els.tag.textContent !== tag) els.tag.textContent = tag;
+    }
+    var canShare = ticking && !state.example;
     if (els.share.hidden === canShare) els.share.hidden = !canShare;
     if (mode === 'free') els.shareText.textContent = 'Share that I’m debt-free';
     else if (mode === 'count') els.shareText.textContent = 'Share my countdown';
-    if (mode === 'count') {
-      var diff = E.calendarDiff(now, snap.payoffAt);
+    if (ticking) {
+      var diff = (mode === 'count' ? E.calendarDiff(now, snap.payoffAt) : E.calendarDiff(freeAt, now)) || ZERO_DIFF;
       els.y.textContent = pad2(diff.years);
       els.m.textContent = pad2(diff.months);
       els.d.textContent = pad2(diff.days);
@@ -1120,6 +1220,9 @@
       els.yl.textContent = plural(diff.years, 'year', 'years');
       els.ml.textContent = plural(diff.months, 'month', 'months');
       els.dl.textContent = plural(diff.days, 'day', 'days');
+    }
+    if (mode === 'count') {
+      els.msg.dataset.mode = 'count';
       if (force || sec % 60 === 0) {
         els.line.textContent = '';
         els.line.appendChild(document.createTextNode('Your last payment lands '));
@@ -1129,16 +1232,26 @@
         if (skipped.length) els.line.appendChild(document.createTextNode(' Not counted: ' + skipped.join(', ') + '.'));
         els.cd.setAttribute('aria-label', 'Debt-free in ' + diff.years + ' years, ' + diff.months + ' months, ' + diff.days + ' days');
       }
-    } else if (force || els.msg.dataset.mode !== mode) {
+    } else if (force || els.msg.dataset.mode !== mode || (mode === 'free' && els.msg.dataset.since !== String(freeAt))) {
+      var arriving = els.msg.dataset.mode !== mode;
       els.msg.dataset.mode = mode;
       els.msg.className = 'cd-message ' + mode;
+      els.msg.removeAttribute('title');
       els.line.textContent = '';
       if (mode === 'never') {
         els.msg.textContent = 'NEVER';
         els.line.textContent = 'At these payments, at least one debt grows every month. Raise its payment, or choose a plan and add extra.';
       } else if (mode === 'free') {
+        els.msg.dataset.since = String(freeAt);
         els.msg.textContent = 'DEBT-FREE';
-        els.line.textContent = 'Every debt in your countdown is paid off. Keep the clock running to watch your net worth grow.';
+        els.msg.title = 'Celebrate again';
+        els.line.appendChild(document.createTextNode('Your last payment landed '));
+        els.line.appendChild(h('strong', null, dLong.format(new Date(freeAt))));
+        els.line.appendChild(document.createTextNode('. Every debt in your countdown is paid off, and this clock now counts how long you’ve stayed debt-free.'));
+        var still = uncountedNames();
+        if (still.length) els.line.appendChild(document.createTextNode(' Still on its own schedule: ' + still.join(', ') + '.'));
+        els.cd.setAttribute('aria-label', 'Debt-free since ' + dLong.format(new Date(freeAt)));
+        if (arriving) maybeCelebrate(freeAt);
       } else if (mode === 'uncounted') {
         els.msg.textContent = '--:--:--';
         els.msg.className = 'cd-message empty';

@@ -210,6 +210,20 @@ button, input { font: inherit; color: inherit; }
 .cd-message.never { color: var(--led-red); text-shadow: 0 0 22px rgba(255, 91, 77, .35); }
 .cd-message.free { color: var(--led-green); text-shadow: 0 0 22px rgba(95, 224, 148, .35); }
 .cd-message.empty { color: var(--led-dim); }
+/* debt-free: the sign glows, and the clock counts up in green */
+.cd-message.free { cursor: pointer; animation: free-glow 3.2s ease-in-out infinite; }
+@keyframes free-glow {
+  50% { text-shadow: 0 0 34px rgba(95, 224, 148, .6), 0 0 6px rgba(95, 224, 148, .55); }
+}
+.cd-caption {
+  margin-top: 22px; font-size: 12px; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase; color: var(--led-dim);
+}
+.board.is-free .countdown { margin-top: 10px; }
+.board.is-free .cd-num { color: var(--led-green); text-shadow: 0 0 22px rgba(95, 224, 148, .3); font-size: clamp(34px, 6vw, 72px); }
+.board.is-free .plan-tag { color: var(--led-green); border-color: rgba(95, 224, 148, .45); }
+.confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .cd-message.free { animation: none; } }
 .payoff-line { margin: 16px 0 0; font-size: clamp(15px, 1.7vw, 18px); color: var(--led-dim); max-width: 60ch; }
 .payoff-line strong { color: var(--led); font-weight: 600; }
 
@@ -507,19 +521,20 @@ button, input { font: inherit; color: inherit; }
     <button class="btn primary" type="button" id="start-own">Start with my numbers</button>
   </div>
 
-  <section class="board" aria-labelledby="board-title">
+  <section class="board" id="board" aria-labelledby="board-title">
     <div class="board-head">
       <span id="board-title">Debt-free in</span>
       <span class="plan-tag" id="plan-tag">Minimums only</span>
     </div>
 
+    <div class="cd-message" id="cd-message" hidden></div>
+    <div class="cd-caption" id="cd-caption" hidden>Debt-free for</div>
     <div class="countdown" id="countdown" role="timer" aria-live="off">
       <div class="cd-unit"><span class="cd-num power" id="cd-y">00</span><span class="cd-lab" id="cd-y-lab">years</span></div>
       <div class="cd-unit"><span class="cd-num power d2" id="cd-m">00</span><span class="cd-lab" id="cd-m-lab">months</span></div>
       <div class="cd-unit"><span class="cd-num power d3" id="cd-d">00</span><span class="cd-lab" id="cd-d-lab">days</span></div>
       <div class="cd-unit cd-time"><span class="cd-num power d4" id="cd-t">00:00:00</span><span class="cd-lab">hrs&ensp;min&ensp;sec</span></div>
     </div>
-    <div class="cd-message" id="cd-message" hidden></div>
     <p class="payoff-line" id="payoff-line"></p>
     <div class="share-row" id="share-row" hidden>
       <button type="button" class="board-btn" id="share-open">

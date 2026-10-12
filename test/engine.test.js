@@ -185,3 +185,25 @@ test('dollar boxes read back typed or pasted amounts', () => {
     assert.equal(E.parseMoneyInput(E.formatMoneyInput(v)), v, `round trip ${v}`);
   }
 });
+
+test('rebase records the day a debt was paid off, and keeps it', () => {
+  const asOf = new Date(2026, 0, 15, 0, 0, 0).getTime();
+  const state = {
+    asOf, assets: [],
+    debts: [
+      { balance: 1200, apr: 0, payment: 300 },              // last payment lands in month 4
+      { balance: 50000, apr: 5, payment: 600 },             // still owed
+      { balance: 0, apr: 0, payment: 0 },                   // blank row: never "paid off"
+    ],
+  };
+  const sim = E.simulateDebts(state.debts, { method: 'minimums' });
+  const moved = E.rebase(state, sim, E.addMonths(asOf, 6) + 86400000);
+  assert.equal(moved.debts[0].balance, 0);
+  assert.equal(moved.debts[0].paidOffAt, E.addMonths(asOf, 4));
+  assert.equal(moved.debts[1].paidOffAt, undefined);
+  assert.equal(moved.debts[2].paidOffAt, undefined);
+  // A later rebase keeps the original payoff day
+  const sim2 = E.simulateDebts(moved.debts, { method: 'minimums' });
+  const again = E.rebase(moved, sim2, E.addMonths(asOf, 9) + 86400000);
+  assert.equal(again.debts[0].paidOffAt, E.addMonths(asOf, 4));
+});

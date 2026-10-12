@@ -285,8 +285,13 @@
     if (k < 1) return state;
     var debts = state.debts.map(function (d, i) {
       var s = sim.series[i];
-      var b = s[Math.min(k, s.length - 1)];
-      return Object.assign({}, d, { balance: round2(b) });
+      var b = round2(s[Math.min(k, s.length - 1)]);
+      var next = Object.assign({}, d, { balance: b });
+      // Remember the day the final payment landed, so a $0 balance reads as "paid off"
+      // (and the clock can celebrate) rather than as a debt nobody filled in yet.
+      var pm = sim.payoffMonth ? sim.payoffMonth[i] : null;
+      if (num(d.balance) > EPS && b <= EPS && pm != null && !d.paidOffAt) next.paidOffAt = addMonths(state.asOf, pm);
+      return next;
     });
     var assets = state.assets.map(function (a) {
       return Object.assign({}, a, { value: round2(assetValueAt(a, k)) });
