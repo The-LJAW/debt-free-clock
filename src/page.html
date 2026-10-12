@@ -126,12 +126,7 @@ button, input { font: inherit; color: inherit; }
   line-height: 1;
   display: flex; align-items: center; gap: 10px;
 }
-.brand h1 .dot {
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--led-red); box-shadow: 0 0 10px var(--led-red);
-  animation: blink 1.6s steps(1) infinite;
-}
-@keyframes blink { 50% { opacity: .25; } }
+.brand h1 .mark { width: 30px; height: 30px; flex: none; border-radius: 7px; }
 .brand p { margin: 8px 0 0; color: var(--muted); font-size: 14.5px; max-width: 52ch; }
 .privacy {
   display: inline-flex; align-items: center; gap: 8px;
@@ -527,7 +522,7 @@ button, input { font: inherit; color: inherit; }
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <h1><span class="dot" aria-hidden="true"></span>DEBT-FREE CLOCK</h1>
+      <h1><svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#0C110E"/><g fill="#5FE094"><circle cx="16.0" cy="6.0" r="2.3"/><circle cx="21.0" cy="7.34" r="2.3"/><circle cx="24.66" cy="11.0" r="2.3"/><circle cx="26.0" cy="16.0" r="2.3"/><circle cx="24.66" cy="21.0" r="2.3"/><circle cx="21.0" cy="24.66" r="2.3"/><circle cx="16.0" cy="26.0" r="2.3"/><circle cx="11.0" cy="24.66" r="2.3"/><circle cx="7.34" cy="21.0" r="2.3"/></g><g fill="#FF5B4D"><circle cx="6.0" cy="16.0" r="2.3"/><circle cx="7.34" cy="11.0" r="2.3"/><circle cx="11.0" cy="7.34" r="2.3"/></g></svg>DEBT-FREE CLOCK</h1>
       <p>A national-debt-style clock for one household. Watch your balance shrink, your interest add up, and the countdown to $0.</p>
     </div>
     <span class="privacy">

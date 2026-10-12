@@ -22,7 +22,10 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
   fields only and clamps every number. Tests in `test/backup.test.js`.
 - `src/sw.js`: service worker for the installable app (offline copy of the page). `build.py`
   stamps it with a build hash and writes it to the root as `sw.js`.
-- `icons/`: app icons (red LED dot on the dark board), used by the manifest and iOS.
+- `icons/`: app icons, drawn by `tools/icons.py` (run it after changing the design). The mark is
+  a countdown ring of LEDs, 3/4 green (paid) and 1/4 red (still owed), on the dark board. A
+  12-dot version is the tab icon (`build.py`), the page-title logo, and the share-card logo;
+  `og-image.png` carries it too. Levi chose this over the old red dot (Oct 12, 2026).
 - `build.py`: inlines everything into `index.html` (the live site) and
   `dist/debt-free-clock.html` (a fragment for the Claude artifact preview), and writes
   `manifest.webmanifest` and `sw.js`. Never hand-edit those generated files.

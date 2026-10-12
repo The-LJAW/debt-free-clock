@@ -963,7 +963,11 @@
 
     // brand mark
     ctx.fillStyle = '#1B2420'; roundRect(ctx, PAD, PAD, 52, 52, 12); ctx.fill();
-    ctx.fillStyle = RED; ctx.beginPath(); ctx.arc(PAD + 26, PAD + 26, 10, 0, 6.2832); ctx.fill();
+    for (var di = 0; di < 12; di++) {               // countdown ring: 3/4 paid (green), 1/4 owed (red)
+      var ang = -Math.PI / 2 + di * Math.PI / 6;
+      ctx.fillStyle = di < 9 ? GREEN : RED;
+      ctx.beginPath(); ctx.arc(PAD + 26 + 16.25 * Math.cos(ang), PAD + 26 + 16.25 * Math.sin(ang), 3.6, 0, 6.2832); ctx.fill();
+    }
     ctx.fillStyle = DIM; ctx.font = '700 24px ' + BODY;
     spaced(ctx, 'DEBT-FREE CLOCK', PAD + 74, PAD + 35, 4);
 

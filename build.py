@@ -33,9 +33,18 @@ head_part, body_part = site_page[:split], site_page[split:]
 
 DESCRIPTION = ("A live countdown to the day you're debt-free, with your balance, interest "
                "and net worth ticking in real time. Private: your numbers never leave your browser.")
-FAVICON = ("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E"
-           "%3Crect width='32' height='32' rx='7' fill='%230C110E'/%3E"
-           "%3Ccircle cx='16' cy='16' r='6' fill='%23FF5B4D'/%3E%3C/svg%3E")
+def ring_mark_svg():
+    """The countdown-ring mark (12 LEDs: 9 green, 3 red) as a small SVG for the tab icon."""
+    import math
+    dots = [(16 + 10 * math.cos(-math.pi / 2 + i * math.pi / 6), 16 + 10 * math.sin(-math.pi / 2 + i * math.pi / 6), i < 9)
+            for i in range(12)]
+    circles = lambda lit: "".join(f"<circle cx='{x:.2f}' cy='{y:.2f}' r='2.3'/>" for x, y, g in dots if g == lit)
+    return ("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>"
+            "<rect width='32' height='32' rx='7' fill='#0C110E'/>"
+            f"<g fill='#5FE094'>{circles(True)}</g><g fill='#FF5B4D'>{circles(False)}</g></svg>")
+
+
+FAVICON = "data:image/svg+xml," + ring_mark_svg().replace("<", "%3C").replace(">", "%3E").replace("#", "%23")
 
 site = f"""<!doctype html>
 <html lang="en">
