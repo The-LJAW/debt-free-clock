@@ -64,7 +64,7 @@ test('bad values are cleaned up, never trusted', () => {
   assert.deepEqual({ ...b, id: 'x' }, { id: 'x', name: '', balance: 0, apr: 0, payment: 0 });
   assert.ok(/^[A-Za-z0-9_-]+$/.test(r.state.assets[0].id));
   assert.deepEqual({ ...r.state.assets[0], id: 'x' }, { id: 'x', name: '', value: 0, rate: 50, contribution: 50 });
-  assert.deepEqual(r.state.plan, { method: 'minimums', extra: 2000 });
+  assert.deepEqual(r.state.plan, { method: 'minimums', extra: 999999 });
   assert.equal(r.state.example, false);
 });
 
@@ -76,4 +76,24 @@ test('a paid-off date only sticks to a $0 balance', () => {
 
 test('backup file names use the local date', () => {
   assert.equal(B.fileName(new Date(2026, 9, 5, 23, 30).getTime()), 'debt-free-clock-backup-2026-10-05.json');
+});
+
+test('one-time payments, the goal and progress survive a backup, cleaned', () => {
+  const s = {
+    ...state,
+    debts: [{ ...state.debts[0], cheered: true }, ...state.debts.slice(1)],
+    plan: { method: 'avalanche', extra: 250, goal: '2029-06',
+      lumps: [{ id: 'l1', ym: '2027-03', amount: 2000, note: 'Tax refund' }, { id: 'l2', ym: '2026-11', amount: 500, note: '', done: true, doneAt: asOf }] },
+    progress: { since: asOf - 86400000 * 90, paid: 3210.55, avoided: 412.2, cheers: [25] },
+  };
+  const r = B.readBackup(B.makeBackup(s, null, asOf));
+  assert.deepEqual(r.state, s);
+  const messy = JSON.parse(B.makeBackup(s, null, asOf));
+  messy.state.plan.goal = 'June';
+  messy.state.plan.lumps.push({ id: 'x', ym: '2027-13', amount: 5 }, { id: 'y', ym: '2027-05', amount: -9, note: 7 });
+  messy.state.progress = { since: asOf, paid: -5, avoided: 'lots', cheers: [25, 99, '50'] };
+  const m = B.readBackup(JSON.stringify(messy));
+  assert.equal(m.state.plan.goal, undefined);
+  assert.deepEqual(m.state.plan.lumps.map((l) => [l.ym, l.amount, l.note]), [['2027-03', 2000, 'Tax refund'], ['2026-11', 500, ''], ['2027-05', 0, '']]);
+  assert.deepEqual(m.state.progress, { since: asOf, paid: 0, avoided: 0, cheers: [25] });
 });

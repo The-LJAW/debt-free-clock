@@ -207,3 +207,77 @@ test('rebase records the day a debt was paid off, and keeps it', () => {
   const again = E.rebase(moved, sim2, E.addMonths(asOf, 9) + 86400000);
   assert.equal(again.debts[0].paidOffAt, E.addMonths(asOf, 4));
 });
+
+// ---------- one-time payments, goals, progress ----------
+const cards = [
+  { balance: 4200, apr: 24.9, payment: 120 },     // high rate
+  { balance: 9800, apr: 6.5, payment: 240 },      // low rate
+];
+
+test('a one-time payment pays debt off sooner and saves interest', () => {
+  const plain = E.simulateDebts(cards, { method: 'avalanche', extra: 100 });
+  const withRefund = E.simulateDebts(cards, { method: 'avalanche', extra: 100, lumps: [{ month: 5, amount: 2000 }] });
+  assert.ok(withRefund.months < plain.months, `${withRefund.months} < ${plain.months}`);
+  assert.ok(withRefund.totalInterest < plain.totalInterest);
+  // it lands in month 5, on the highest rate first: month 5 drops by ~2,000 more than the plan without it
+  const drop = (sim) => sim.series[0][4] - sim.series[0][5];
+  close(drop(withRefund) - drop(plain), 2000, 0.01, 'refund applied to the 24.9% card in month 5');
+  assert.equal(withRefund.series[1][5], plain.series[1][5], 'the 6.5% loan is untouched that month');
+});
+
+test('one-time payments also work on a minimums plan, highest rate first', () => {
+  const sim = E.simulateDebts(cards, { method: 'minimums', lumps: [{ month: 1, amount: 1000 }] });
+  const base = E.simulateDebts(cards, { method: 'minimums' });
+  close(base.series[0][1] - sim.series[0][1], 1000, 0.01, 'went to the card');
+  assert.equal(sim.series[1][1], base.series[1][1]);
+});
+
+test('past, finished or malformed one-time payments are ignored', () => {
+  const asOf = new Date(2026, 9, 12).getTime();          // Oct 12, 2026
+  assert.equal(E.lumpMonth(asOf, '2026-11'), 1);
+  assert.equal(E.lumpMonth(asOf, '2027-03'), 5);
+  assert.equal(E.lumpMonth(asOf, 'March'), null);
+  const live = E.activeLumps(asOf, [
+    { id: 'a', ym: '2027-03', amount: 2000 },
+    { id: 'b', ym: '2026-10', amount: 500 },              // this month's payment already landed
+    { id: 'c', ym: '2027-01', amount: 800, done: true },  // already applied
+    { id: 'd', ym: '2027-02', amount: 0 },
+  ]);
+  assert.deepEqual(live, [{ month: 5, amount: 2000, id: 'a' }]);
+});
+
+test('the goal solver finds the smallest extra that hits the date', () => {
+  const plan = { method: 'minimums', extra: 0, lumps: [] };
+  const base = E.simulateDebts(cards, { method: 'avalanche', extra: 0 });
+  const target = base.months - 18;
+  const g = E.extraForGoal(cards, plan, target);
+  assert.equal(g.ok, true);
+  assert.equal(g.method, 'avalanche');
+  assert.equal(g.extra % 5, 0);
+  assert.ok(E.simulateDebts(cards, { method: 'avalanche', extra: g.extra }).months <= target, 'meets the date');
+  assert.ok(E.simulateDebts(cards, { method: 'avalanche', extra: g.extra - 5 }).months > target, 'and $5 less would not');
+});
+
+test('the goal solver: already on track, too soon, and one-time payments count', () => {
+  const plan = { method: 'avalanche', extra: 300, lumps: [] };
+  const now = E.simulateDebts(cards, plan);
+  const g = E.extraForGoal(cards, plan, now.months + 6);
+  assert.equal(g.already, true);
+  assert.equal(E.extraForGoal(cards, plan, 0).reason, 'too-soon');
+  const target = now.months - 6;
+  const noLump = E.extraForGoal(cards, plan, target);
+  const lump = E.extraForGoal(cards, { ...plan, lumps: [{ month: 2, amount: 3000 }] }, target);
+  assert.ok(lump.extra < noLump.extra, `${lump.extra} < ${noLump.extra}`);
+});
+
+test('progress over the first months: paid off, interest, and interest minimums would charge', () => {
+  const plan = E.simulateDebts(cards, { method: 'avalanche', extra: 200 });
+  const base = E.simulateDebts(cards, { method: 'minimums' });
+  const p = E.progressOver(cards, plan, base, 3);
+  const expectPaid = cards.reduce((s, d, i) => s + plan.series[i][0] - plan.series[i][3], 0);
+  close(p.paid, expectPaid, 1e-6, 'paid');
+  close(p.interest, cards[0].balance * 0.249 / 12 + plan.series[0][1] * 0.249 / 12 + plan.series[0][2] * 0.249 / 12
+    + cards[1].balance * 0.065 / 12 + plan.series[1][1] * 0.065 / 12 + plan.series[1][2] * 0.065 / 12, 1e-6, 'interest');
+  assert.ok(p.baseInterest > p.interest, 'the plan charges less interest than minimums');
+  assert.deepEqual(E.progressOver(cards, plan, base, 0), { paid: 0, interest: 0, baseInterest: 0 });
+});

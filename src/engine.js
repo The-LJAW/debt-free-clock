@@ -103,7 +103,10 @@
   /**
    * Simulate month by month.
    * @param debts [{balance, apr (percent), payment}]
-   * @param opts  {method: 'minimums'|'avalanche'|'snowball', extra: number}
+   * @param opts  {method: 'minimums'|'avalanche'|'snowball', extra: number,
+   *                lumps: [{month, amount}] one-time payments landing with month `month`'s
+   *                payment (month 1 = the next payment). They follow the plan's payoff order;
+   *                under 'minimums' they go to the highest rate first.}
    * @returns {
    *   months: number|Infinity   month index of the final payment (Infinity if not within 50 yrs),
    *   series: number[][]        per-debt post-payment balance at month 0..lastMonth,
@@ -128,6 +131,12 @@
     var extra = planned ? Math.max(0, num(opts.extra)) : 0;
     var budget = pay.reduce(function (s, p) { return s + p; }, 0) + extra;
     var order = payoffOrder(debts, method);
+    var lumpOrder = planned ? order : payoffOrder(debts, 'avalanche');
+    var bonusAt = {};
+    (opts.lumps || []).forEach(function (l) {
+      var m = Math.round(num(l && l.month)), a = Math.max(0, num(l && l.amount));
+      if (m >= 1 && a > 0) bonusAt[m] = (bonusAt[m] || 0) + a;
+    });
 
     var series = bal.map(function (b) { return [b]; });
     var total = [sum(bal)];
@@ -152,10 +161,12 @@
           spent += p;
         }
       }
-      if (planned) {
-        var rem = budget - spent;
-        for (var o = 0; o < order.length && rem > EPS; o++) {
-          var t = order[o];
+      var bonus = bonusAt[month] || 0;
+      if (planned || bonus > 0) {
+        var rem = (planned ? budget - spent : 0) + bonus;
+        var ord = planned ? order : lumpOrder;
+        for (var o = 0; o < ord.length && rem > EPS; o++) {
+          var t = ord[o];
           if (bal[t] > EPS) {
             var q = Math.min(bal[t], rem);
             bal[t] -= q;
@@ -186,6 +197,73 @@
       method: method,
       extra: extra
     };
+  }
+
+  // ---------- one-time payments, goals, progress ----------
+
+  /** Month index (1 = next payment) of the payment that lands in calendar month 'YYYY-MM'. */
+  function lumpMonth(asOf, ym) {
+    var m = /^(\d{4})-(\d{2})$/.exec(String(ym || ''));
+    if (!m) return null;
+    var a = new Date(asOf);
+    return (Number(m[1]) * 12 + Number(m[2]) - 1) - (a.getFullYear() * 12 + a.getMonth());
+  }
+
+  /** The plan's one-time payments that are still ahead, as {month, amount} for simulateDebts. */
+  function activeLumps(asOf, lumps) {
+    var out = [];
+    (lumps || []).forEach(function (l) {
+      if (!l || l.done) return;
+      var m = lumpMonth(asOf, l.ym), a = num(l.amount);
+      if (m !== null && m >= 1 && a > 0) out.push({ month: m, amount: a, id: l.id });
+    });
+    return out;
+  }
+
+  /**
+   * The smallest extra monthly amount (rounded up to $5) that makes the final payment land in
+   * month `target` or sooner, keeping the plan's one-time payments. Uses the plan's method, or
+   * avalanche when the plan is minimums.
+   * @returns {ok:true, extra, method, months, already} | {ok:false, reason:'too-soon'|'never'}
+   */
+  function extraForGoal(debts, plan, target) {
+    var method = plan.method === 'snowball' ? 'snowball' : 'avalanche';
+    var lumps = plan.lumps || [];
+    if (!(target >= 1)) return { ok: false, reason: 'too-soon' };
+    var current = simulateDebts(debts, { method: plan.method, extra: plan.extra, lumps: lumps });
+    if (current.months <= target) return { ok: true, already: true, extra: num(plan.extra), method: plan.method, months: current.months };
+    var monthsWith = function (x) { return simulateDebts(debts, { method: method, extra: x, lumps: lumps }).months; };
+    if (monthsWith(0) <= target) return { ok: true, already: false, extra: 0, method: method, months: monthsWith(0) };
+    var lo = 0, hi = 50;
+    while (monthsWith(hi) > target) {
+      lo = hi; hi *= 2;
+      if (hi > 1e8) return { ok: false, reason: 'never' };
+    }
+    while (hi - lo > 1) {                       // payoff only moves earlier as extra grows
+      var mid = Math.floor((lo + hi) / 2);
+      if (monthsWith(mid) <= target) hi = mid; else lo = mid;
+    }
+    var extra = Math.ceil(hi / 5) * 5;
+    return { ok: true, already: false, extra: extra, method: method, months: monthsWith(extra) };
+  }
+
+  /**
+   * What the first k months of a plan did: principal paid off, interest charged, and the
+   * interest minimum payments alone would have charged. Used to keep a running total of
+   * progress as the clock rolls forward.
+   */
+  function progressOver(debts, planSim, baseSim, k) {
+    var paid = 0, interest = 0, baseInterest = 0;
+    for (var i = 0; i < debts.length; i++) {
+      var r = Math.max(0, num(debts[i].apr)) / 100 / 12;
+      var s = planSim.series[i], b = baseSim.series[i];
+      paid += s[0] - s[Math.min(k, s.length - 1)];
+      for (var m = 1; m <= k; m++) {
+        if (m - 1 < s.length && s[m - 1] > EPS) interest += s[m - 1] * r;
+        if (m - 1 < b.length && b[m - 1] > EPS) baseInterest += b[m - 1] * r;
+      }
+    }
+    return { paid: paid, interest: interest, baseInterest: baseInterest };
   }
 
   function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
@@ -322,7 +400,8 @@
     calendarDiff: calendarDiff, simulateDebts: simulateDebts, payoffOrder: payoffOrder,
     isGrowing: isGrowing, monthlyInterest: monthlyInterest, assetValueAt: assetValueAt,
     snapshot: snapshot, rebase: rebase,
-    formatMoneyInput: formatMoneyInput, parseMoneyInput: parseMoneyInput
+    formatMoneyInput: formatMoneyInput, parseMoneyInput: parseMoneyInput,
+    lumpMonth: lumpMonth, activeLumps: activeLumps, extraForGoal: extraForGoal, progressOver: progressOver
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

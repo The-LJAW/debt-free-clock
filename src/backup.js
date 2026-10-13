@@ -16,6 +16,7 @@
   var VERSION = 1;
   var MAX_ITEMS = 200;
   var METHODS = { minimums: true, avalanche: true, snowball: true };
+  var YM = /^\d{4}-(0[1-9]|1[0-2])$/;      // 'YYYY-MM'
 
   function num(v, lo, hi, fallback) {
     var n = Number(v);
@@ -75,6 +76,7 @@
         payment: num(d.payment, 0, 1e12, 0)
       };
       if (d.inCountdown === false) out.inCountdown = false;
+      if (d.cheered === true) out.cheered = true;
       var paid = time(d.paidOffAt);
       if (paid && out.balance <= 0.005) out.paidOffAt = paid;
       return out;
@@ -89,14 +91,30 @@
       };
     });
     var plan = s.plan && typeof s.plan === 'object' ? s.plan : {};
+    var cleanPlan = { method: METHODS[plan.method] ? plan.method : 'minimums', extra: num(plan.extra, 0, 1e6, 0) };
+    if (Array.isArray(plan.lumps)) {
+      cleanPlan.lumps = plan.lumps.slice(0, 50).filter(function (l) { return l && typeof l === 'object' && YM.test(l.ym); }).map(function (l) {
+        var out = { id: cleanId(l.id, 'l', seen), ym: l.ym, amount: num(l.amount, 0, 1e9, 0), note: text(l.note, 40) };
+        if (l.done === true) { out.done = true; var at = time(l.doneAt); if (at) out.doneAt = at; }
+        return out;
+      });
+    }
+    if (YM.test(plan.goal)) cleanPlan.goal = plan.goal;
     var state = {
       v: 1,
       example: s.example === true,
       asOf: time(s.asOf),
       debts: debts,
       assets: assets,
-      plan: { method: METHODS[plan.method] ? plan.method : 'minimums', extra: num(plan.extra, 0, 2000, 0) }
+      plan: cleanPlan
     };
+    var pr = s.progress;
+    if (pr && typeof pr === 'object' && time(pr.since)) {
+      state.progress = {
+        since: time(pr.since), paid: num(pr.paid, 0, 1e12, 0), avoided: num(pr.avoided, 0, 1e12, 0),
+        cheers: Array.isArray(pr.cheers) ? [25, 50, 75].filter(function (c) { return pr.cheers.indexOf(c) >= 0; }) : []
+      };
+    }
     var celebrated = time(s.celebratedFor);
     if (celebrated) state.celebratedFor = celebrated;
 

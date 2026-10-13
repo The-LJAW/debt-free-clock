@@ -20,6 +20,7 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
   until checkoutUrl and storeId are set, so the site never locks people out mid-setup.
 - `src/backup.js`: backup files (make / read). `readBackup` rebuilds a clean state from known
   fields only and clamps every number. Tests in `test/backup.test.js`.
+- `src/ics.js`: calendar files (.ics) for payment reminders. Tests in `test/ics.test.js`.
 - `src/sw.js`: service worker for the installable app (offline copy of the page). `build.py`
   stamps it with a build hash and writes it to the root as `sw.js`.
 - `icons/`: app icons, drawn by `tools/icons.py` (run it after changing the design). The mark is
@@ -62,6 +63,15 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
   (`beforeinstallprompt`); iPhone and Mac Safari get instructions. iPhone home-screen apps keep
   their own storage, separate from Safari, so the iPhone text points Pro users to a backup.
   The service worker never touches Lemon Squeezy requests and isn't registered in the preview.
+- Pro planner extras (Oct 2026): one-time payments (`plan.lumps`, {id, ym 'YYYY-MM', amount,
+  note, done}; they land with the payment in that calendar month, follow the plan's order, or
+  highest rate first under Minimums; marked `done` when the clock rolls past them), a
+  "Debt-free by" goal (`plan.goal`, solved by `E.extraForGoal`; the slider stretches past
+  $2,000 when needed), calendar reminders (.ics download), and progress: `state.progress`
+  {since, paid, avoided, cheers} is added up in `rollForward` each month (`E.progressOver`),
+  shown as a 25-LED bar on the board with the next milestone. 25/50/75% and each paid-off
+  debt (`debt.cheered`) get one queued cheer with confetti. Progress is tracked for everyone
+  but shown only to Pro.
 - Once every counted debt is paid off, the board celebrates: green DEBT-FREE sign, the clock
   counts UP from the last payment (`paidOffAt`, recorded by `E.rebase`), and confetti plays
   once per payoff (`state.celebratedFor`) or when the sign is tapped. A blank $0 row never

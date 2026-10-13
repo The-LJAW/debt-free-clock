@@ -16,6 +16,7 @@ no bank linking.
 | `src/license.js` | Pro license checks against the Lemon Squeezy License API (activate, validate, deactivate). |
 | `src/config.js` | Pro settings: price, checkout link, store ID, product IDs. The lock is off until these are filled in. |
 | `src/backup.js` | Backup files: save and read, with every value checked and cleaned on the way in. |
+| `src/ics.js` | Calendar files (.ics) for payment-day reminders and payoff milestones. |
 | `src/sw.js` | Service worker source: keeps an offline copy so the installed app opens without a connection. |
 | `icons/` | App icons for the home screen and install prompt. |
 | `test/license.test.js` | Unit tests for the license checks (fake Lemon Squeezy replies). |

@@ -16,7 +16,7 @@ root = Path(__file__).parent
 src = lambda name: (root / "src" / name).read_text()
 
 page = src("page.html")
-for marker, name in [("/*@ENGINE@*/", "engine.js"), ("/*@LICENSE@*/", "license.js"), ("/*@BACKUP@*/", "backup.js"),
+for marker, name in [("/*@ENGINE@*/", "engine.js"), ("/*@LICENSE@*/", "license.js"), ("/*@BACKUP@*/", "backup.js"), ("/*@ICS@*/", "ics.js"),
                      ("/*@CONFIG@*/", "config.js"), ("/*@APP@*/", "app.js")]:
     assert marker in page, marker
     page = page.replace(marker, src(name))
