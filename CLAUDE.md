@@ -77,6 +77,12 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
   clock, the interest ticker's second line becomes "your plan has spared you $X so far"
   (`progress.avoided`), or "sparing you $X a day" once that's at least 50 cents, or "will
   spare you $X" (total interest saved) on day one.
+- Pro batch 2 (Oct 14, 2026): per-debt rate change (`newApr` + `rateChangeYm` 'YYYY-MM';
+  `E.withRateChanges` turns it into `rateChange: {month, apr}` for the simulation, and past
+  changes are dropped; chips and the board warn within 2 months), a safety-cushion check
+  (`state.buffer`, `state.essentials`; `E.bufferCheck`; under 3 months of required payments
+  is flagged; rule of thumb, not advice) and a one-page printable plan (`#print-sheet` is
+  filled by `renderPrint` and is the only thing visible under `@media print`).
 - Once every counted debt is paid off, the board celebrates: green DEBT-FREE sign, the clock
   counts UP from the last payment (`paidOffAt`, recorded by `E.rebase`), and confetti plays
   once per payoff (`state.celebratedFor`) or when the sign is tapped. A blank $0 row never

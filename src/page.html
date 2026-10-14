@@ -481,6 +481,46 @@ button, input { font: inherit; color: inherit; }
 #goal-apply { margin-top: 10px; width: 100%; }
 #plan.no-stick { position: static; }
 
+/* rate change per debt */
+.rate-change { font-size: 13px; }
+.rate-change summary { cursor: pointer; color: var(--accent-text); font-weight: 600; list-style: none; }
+.rate-change summary::-webkit-details-marker { display: none; }
+.rate-change summary::before { content: '▸ '; }
+.rate-change[open] summary::before { content: '▾ '; }
+.rate-change.rate-locked summary { color: var(--muted); cursor: default; pointer-events: none; }
+.rate-row { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 8px; }
+.warn-text { color: var(--crit); font-weight: 650; }
+#buffer-block .field label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); display: block; margin-bottom: 4px; }
+
+/* the printable plan: hidden on screen, the only thing on paper */
+.print-sheet { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .print-sheet, .print-sheet * { visibility: visible; }
+  .print-sheet { display: block; position: absolute; inset: 0; padding: 0; background: #fff; color: #111; font: 12pt/1.4 "Public Sans", system-ui, sans-serif; }
+  .wrap { display: none; }
+  .p-top { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #111; padding-bottom: 6pt; }
+  .p-brand { font-weight: 800; letter-spacing: .14em; font-size: 11pt; }
+  .p-date { color: #555; font-size: 10pt; }
+  .p-big { margin-top: 18pt; }
+  .p-lead { font-size: 11pt; letter-spacing: .12em; text-transform: uppercase; color: #555; }
+  .p-count { font-size: 28pt; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .p-sub { font-size: 12pt; margin-top: 4pt; }
+  .p-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt 20pt; margin-top: 16pt; }
+  .p-fact span { display: block; font-size: 9.5pt; color: #555; text-transform: uppercase; letter-spacing: .08em; }
+  .p-fact strong { font-size: 12pt; }
+  .p-table { width: 100%; border-collapse: collapse; margin-top: 16pt; font-size: 11pt; }
+  .p-table th { text-align: left; font-size: 9.5pt; color: #555; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid #999; padding: 4pt 6pt 4pt 0; }
+  .p-table td { border-bottom: 1px solid #ddd; padding: 5pt 6pt 5pt 0; }
+  .print-sheet h3 { font-size: 10pt; text-transform: uppercase; letter-spacing: .1em; color: #555; margin: 16pt 0 4pt; }
+  .p-list { margin: 0; padding-left: 16pt; }
+  .p-fridge { margin-top: 22pt; padding: 12pt 14pt; border: 2px dashed #111; border-radius: 8pt; text-align: center; }
+  .p-fridge-lead { font-size: 16pt; font-weight: 800; }
+  .p-fridge-line { margin-top: 4pt; font-size: 11pt; color: #333; }
+  .p-foot { margin-top: 14pt; font-size: 9pt; color: #777; }
+  @page { margin: 18mm; }
+}
+
 /* progress on the board (Pro) */
 .progress { margin-top: 18px; }
 .prog-bar { display: grid; grid-template-columns: repeat(25, 1fr); gap: 4px; max-width: 520px; }
@@ -642,7 +682,8 @@ button, input { font: inherit; color: inherit; }
           <li>Plan one-time payments, like a tax refund, and see how much sooner you’ll be free</li>
           <li>Pick a debt-free date and see exactly what it takes</li>
           <li>Track your progress and celebrate each milestone on the clock</li>
-          <li>Add payment-day reminders to your own calendar</li>
+          <li>Add payment-day reminders to your own calendar, and print your plan on one page</li>
+          <li>Plan for a 0% promo ending or a rate reset, and check your safety cushion</li>
           <li>Put your plan on the countdown clock, and back it up to take to a new device</li>
         </ul>
         <a class="btn primary buy" id="buy-pro" href="#" target="_blank" rel="noopener"></a>
@@ -712,6 +753,19 @@ button, input { font: inherit; color: inherit; }
       <div id="order-block">
         <h3 class="order-head">Payoff order</h3>
         <ol class="order" id="order"></ol>
+      </div>
+      <div class="plan-sec" id="buffer-block">
+        <div class="sec-head"><h3>Safety cushion</h3><span class="sec-note">Are you pushing too hard?</span></div>
+        <div class="goal-row">
+          <div class="field"><label for="buffer-savings">Emergency savings</label><div class="input-wrap"><span class="adorn" aria-hidden="true">$</span><input id="buffer-savings" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div></div>
+          <div class="field"><label for="buffer-essentials">Other essentials a month <span class="sec-note">(optional)</span></label><div class="input-wrap"><span class="adorn" aria-hidden="true">$</span><input id="buffer-essentials" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div></div>
+        </div>
+        <p class="goal-out" id="buffer-out"></p>
+      </div>
+      <div class="plan-sec" id="print-block">
+        <div class="sec-head"><h3>Your plan on one page</h3></div>
+        <p class="sec-text">Print it, or save it as a PDF, and put it somewhere you'll see it.</p>
+        <button class="btn" type="button" id="print-plan">Print my plan</button>
       </div>
       <div class="plan-sec" id="cal-block">
         <div class="sec-head"><h3>Payment reminders</h3></div>
@@ -794,6 +848,8 @@ button, input { font: inherit; color: inherit; }
     <button type="button" class="btn" id="restore-cancel">Cancel</button>
   </div>
 </dialog>
+
+<div class="print-sheet" id="print-sheet" aria-hidden="true"></div>
 
 <div class="toast" id="toast" role="status" hidden><span id="toast-text"></span><button type="button" id="toast-undo">Undo</button></div>
 

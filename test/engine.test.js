@@ -293,3 +293,29 @@ test('a year ago: the plan would have put you further along, and avoids interest
   const none = E.headStart(cards, base, base, 12);
   assert.deepEqual(none, { ahead: 0, interestSaved: 0, perDay: 0 });
 });
+
+test('a 0% promo rate that ends raises interest from that month on', () => {
+  const promo = [{ balance: 6000, apr: 0, payment: 200, rateChange: { month: 7, apr: 24.99 } }];
+  const flat0 = E.simulateDebts([{ balance: 6000, apr: 0, payment: 200 }], { method: 'minimums' });
+  const flat25 = E.simulateDebts([{ balance: 6000, apr: 24.99, payment: 200 }], { method: 'minimums' });
+  const sim = E.simulateDebts(promo, { method: 'minimums' });
+  assert.equal(sim.series[0][6], flat0.series[0][6], 'identical through month 6');
+  assert.ok(sim.series[0][7] > flat0.series[0][7], 'interest starts in month 7');
+  assert.ok(sim.months > flat0.months && sim.months < flat25.months);
+  // the change relative to a date
+  const asOf = new Date(2026, 9, 12).getTime();
+  const d = E.withRateChanges([{ balance: 6000, apr: 0, payment: 200, newApr: 24.99, rateChangeYm: '2027-04' }, { balance: 1, apr: 5, payment: 1 }], asOf);
+  assert.deepEqual(d[0].rateChange, { month: 6, apr: 24.99 });
+  assert.equal(d[1].rateChange, undefined);
+  assert.equal(E.withRateChanges([{ balance: 6000, apr: 0, payment: 200, newApr: 24.99, rateChangeYm: '2026-09' }], asOf)[0].rateChange, undefined, 'past changes are dropped');
+});
+
+test('the buffer check counts months of minimum payments covered', () => {
+  const b = E.bufferCheck(cards, 1800, 300, 0);
+  assert.equal(b.minimums, 360);
+  close(b.months, 5, 1e-9, '1800 / 360');
+  close(b.extraMonths, 6, 1e-9);
+  const withBills = E.bufferCheck(cards, 1800, 300, 2500);
+  close(withBills.months, 1800 / 2860, 1e-9);
+  assert.equal(E.bufferCheck([], 500, 0, 0).months, Infinity);
+});

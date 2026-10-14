@@ -102,7 +102,9 @@
 
   /**
    * Simulate month by month.
-   * @param debts [{balance, apr (percent), payment}]
+   * @param debts [{balance, apr (percent), payment, rateChange?: {month, apr}}]
+   *               rateChange: from payment `month` on (1 = next payment), interest uses the
+   *               new APR (a 0% promo ending, a variable rate resetting).
    * @param opts  {method: 'minimums'|'avalanche'|'snowball', extra: number,
    *                lumps: [{month, amount}] one-time payments landing with month `month`'s
    *                payment (month 1 = the next payment). They follow the plan's payoff order;
@@ -122,11 +124,13 @@
     var method = opts.method === 'avalanche' || opts.method === 'snowball' ? opts.method : 'minimums';
     var planned = method !== 'minimums';
     var n = debts.length;
-    var bal = [], r = [], pay = [];
+    var bal = [], r = [], pay = [], rc = [];
     for (var i = 0; i < n; i++) {
       bal.push(Math.max(0, num(debts[i].balance)));
       r.push(Math.max(0, num(debts[i].apr)) / 100 / 12);
       pay.push(Math.max(0, num(debts[i].payment)));
+      var ch = debts[i].rateChange;
+      rc.push(ch && num(ch.month) >= 1 ? { month: Math.round(num(ch.month)), r: Math.max(0, num(ch.apr)) / 100 / 12 } : null);
     }
     var extra = planned ? Math.max(0, num(opts.extra)) : 0;
     var budget = pay.reduce(function (s, p) { return s + p; }, 0) + extra;
@@ -148,6 +152,7 @@
       month++;
       var spent = 0, j;
       for (j = 0; j < n; j++) {
+        if (rc[j] && month >= rc[j].month) r[j] = rc[j].r;
         if (bal[j] > EPS) {
           var it = bal[j] * r[j];
           bal[j] += it;
@@ -289,6 +294,37 @@
     };
   }
 
+  /**
+   * Debts as the simulation sees them: a debt with a rate change (`newApr` and `rateChangeYm`
+   * 'YYYY-MM') gets `rateChange: {month, apr}` relative to `asOf`. A change already in the
+   * past means the current APR should simply be the new one, so it's dropped.
+   */
+  function withRateChanges(debts, asOf) {
+    return debts.map(function (d) {
+      if (!d || d.newApr == null || d.newApr === '' || !d.rateChangeYm) return d;
+      var m = lumpMonth(asOf, d.rateChangeYm);
+      if (m === null || m < 1) return d;
+      return Object.assign({}, d, { rateChange: { month: m, apr: num(d.newApr) } });
+    });
+  }
+
+  /**
+   * Emergency-fund buffer: how many months of required payments (minimums on every debt,
+   * plus essentials if given) the savings cover, with and without the plan's extra.
+   */
+  function bufferCheck(debts, savings, extra, essentials) {
+    var mins = 0;
+    debts.forEach(function (d) { if (num(d.balance) > EPS) mins += Math.max(0, num(d.payment)); });
+    var monthly = mins + Math.max(0, num(essentials));
+    var s = Math.max(0, num(savings));
+    return {
+      minimums: mins,
+      monthly: monthly,
+      months: monthly > 0 ? s / monthly : Infinity,
+      extraMonths: Math.max(0, num(extra)) > 0 ? s / Math.max(0, num(extra)) : Infinity   // months of extra the savings equal
+    };
+  }
+
   function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
   function anyOpen(a) { for (var i = 0; i < a.length; i++) if (a[i] > EPS) return true; return false; }
 
@@ -424,7 +460,7 @@
     isGrowing: isGrowing, monthlyInterest: monthlyInterest, assetValueAt: assetValueAt,
     snapshot: snapshot, rebase: rebase,
     formatMoneyInput: formatMoneyInput, parseMoneyInput: parseMoneyInput,
-    lumpMonth: lumpMonth, activeLumps: activeLumps, extraForGoal: extraForGoal, progressOver: progressOver, headStart: headStart
+    lumpMonth: lumpMonth, activeLumps: activeLumps, extraForGoal: extraForGoal, progressOver: progressOver, headStart: headStart, withRateChanges: withRateChanges, bufferCheck: bufferCheck
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -511,6 +511,46 @@ button, input { font: inherit; color: inherit; }
 #goal-apply { margin-top: 10px; width: 100%; }
 #plan.no-stick { position: static; }
 
+/* rate change per debt */
+.rate-change { font-size: 13px; }
+.rate-change summary { cursor: pointer; color: var(--accent-text); font-weight: 600; list-style: none; }
+.rate-change summary::-webkit-details-marker { display: none; }
+.rate-change summary::before { content: '▸ '; }
+.rate-change[open] summary::before { content: '▾ '; }
+.rate-change.rate-locked summary { color: var(--muted); cursor: default; pointer-events: none; }
+.rate-row { display: grid; grid-template-columns: minmax(0, .7fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 8px; }
+.warn-text { color: var(--crit); font-weight: 650; }
+#buffer-block .field label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); display: block; margin-bottom: 4px; }
+
+/* the printable plan: hidden on screen, the only thing on paper */
+.print-sheet { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .print-sheet, .print-sheet * { visibility: visible; }
+  .print-sheet { display: block; position: absolute; inset: 0; padding: 0; background: #fff; color: #111; font: 12pt/1.4 "Public Sans", system-ui, sans-serif; }
+  .wrap { display: none; }
+  .p-top { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 2px solid #111; padding-bottom: 6pt; }
+  .p-brand { font-weight: 800; letter-spacing: .14em; font-size: 11pt; }
+  .p-date { color: #555; font-size: 10pt; }
+  .p-big { margin-top: 18pt; }
+  .p-lead { font-size: 11pt; letter-spacing: .12em; text-transform: uppercase; color: #555; }
+  .p-count { font-size: 28pt; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+  .p-sub { font-size: 12pt; margin-top: 4pt; }
+  .p-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8pt 20pt; margin-top: 16pt; }
+  .p-fact span { display: block; font-size: 9.5pt; color: #555; text-transform: uppercase; letter-spacing: .08em; }
+  .p-fact strong { font-size: 12pt; }
+  .p-table { width: 100%; border-collapse: collapse; margin-top: 16pt; font-size: 11pt; }
+  .p-table th { text-align: left; font-size: 9.5pt; color: #555; text-transform: uppercase; letter-spacing: .08em; border-bottom: 1px solid #999; padding: 4pt 6pt 4pt 0; }
+  .p-table td { border-bottom: 1px solid #ddd; padding: 5pt 6pt 5pt 0; }
+  .print-sheet h3 { font-size: 10pt; text-transform: uppercase; letter-spacing: .1em; color: #555; margin: 16pt 0 4pt; }
+  .p-list { margin: 0; padding-left: 16pt; }
+  .p-fridge { margin-top: 22pt; padding: 12pt 14pt; border: 2px dashed #111; border-radius: 8pt; text-align: center; }
+  .p-fridge-lead { font-size: 16pt; font-weight: 800; }
+  .p-fridge-line { margin-top: 4pt; font-size: 11pt; color: #333; }
+  .p-foot { margin-top: 14pt; font-size: 9pt; color: #777; }
+  @page { margin: 18mm; }
+}
+
 /* progress on the board (Pro) */
 .progress { margin-top: 18px; }
 .prog-bar { display: grid; grid-template-columns: repeat(25, 1fr); gap: 4px; max-width: 520px; }
@@ -673,7 +713,8 @@ button, input { font: inherit; color: inherit; }
           <li>Plan one-time payments, like a tax refund, and see how much sooner you’ll be free</li>
           <li>Pick a debt-free date and see exactly what it takes</li>
           <li>Track your progress and celebrate each milestone on the clock</li>
-          <li>Add payment-day reminders to your own calendar</li>
+          <li>Add payment-day reminders to your own calendar, and print your plan on one page</li>
+          <li>Plan for a 0% promo ending or a rate reset, and check your safety cushion</li>
           <li>Put your plan on the countdown clock, and back it up to take to a new device</li>
         </ul>
         <a class="btn primary buy" id="buy-pro" href="#" target="_blank" rel="noopener"></a>
@@ -743,6 +784,19 @@ button, input { font: inherit; color: inherit; }
       <div id="order-block">
         <h3 class="order-head">Payoff order</h3>
         <ol class="order" id="order"></ol>
+      </div>
+      <div class="plan-sec" id="buffer-block">
+        <div class="sec-head"><h3>Safety cushion</h3><span class="sec-note">Are you pushing too hard?</span></div>
+        <div class="goal-row">
+          <div class="field"><label for="buffer-savings">Emergency savings</label><div class="input-wrap"><span class="adorn" aria-hidden="true">$</span><input id="buffer-savings" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div></div>
+          <div class="field"><label for="buffer-essentials">Other essentials a month <span class="sec-note">(optional)</span></label><div class="input-wrap"><span class="adorn" aria-hidden="true">$</span><input id="buffer-essentials" type="text" inputmode="decimal" autocomplete="off" placeholder="0"></div></div>
+        </div>
+        <p class="goal-out" id="buffer-out"></p>
+      </div>
+      <div class="plan-sec" id="print-block">
+        <div class="sec-head"><h3>Your plan on one page</h3></div>
+        <p class="sec-text">Print it, or save it as a PDF, and put it somewhere you'll see it.</p>
+        <button class="btn" type="button" id="print-plan">Print my plan</button>
       </div>
       <div class="plan-sec" id="cal-block">
         <div class="sec-head"><h3>Payment reminders</h3></div>
@@ -825,6 +879,8 @@ button, input { font: inherit; color: inherit; }
     <button type="button" class="btn" id="restore-cancel">Cancel</button>
   </div>
 </dialog>
+
+<div class="print-sheet" id="print-sheet" aria-hidden="true"></div>
 
 <div class="toast" id="toast" role="status" hidden><span id="toast-text"></span><button type="button" id="toast-undo">Undo</button></div>
 
@@ -933,7 +989,9 @@ button, input { font: inherit; color: inherit; }
 
   /**
    * Simulate month by month.
-   * @param debts [{balance, apr (percent), payment}]
+   * @param debts [{balance, apr (percent), payment, rateChange?: {month, apr}}]
+   *               rateChange: from payment `month` on (1 = next payment), interest uses the
+   *               new APR (a 0% promo ending, a variable rate resetting).
    * @param opts  {method: 'minimums'|'avalanche'|'snowball', extra: number,
    *                lumps: [{month, amount}] one-time payments landing with month `month`'s
    *                payment (month 1 = the next payment). They follow the plan's payoff order;
@@ -953,11 +1011,13 @@ button, input { font: inherit; color: inherit; }
     var method = opts.method === 'avalanche' || opts.method === 'snowball' ? opts.method : 'minimums';
     var planned = method !== 'minimums';
     var n = debts.length;
-    var bal = [], r = [], pay = [];
+    var bal = [], r = [], pay = [], rc = [];
     for (var i = 0; i < n; i++) {
       bal.push(Math.max(0, num(debts[i].balance)));
       r.push(Math.max(0, num(debts[i].apr)) / 100 / 12);
       pay.push(Math.max(0, num(debts[i].payment)));
+      var ch = debts[i].rateChange;
+      rc.push(ch && num(ch.month) >= 1 ? { month: Math.round(num(ch.month)), r: Math.max(0, num(ch.apr)) / 100 / 12 } : null);
     }
     var extra = planned ? Math.max(0, num(opts.extra)) : 0;
     var budget = pay.reduce(function (s, p) { return s + p; }, 0) + extra;
@@ -979,6 +1039,7 @@ button, input { font: inherit; color: inherit; }
       month++;
       var spent = 0, j;
       for (j = 0; j < n; j++) {
+        if (rc[j] && month >= rc[j].month) r[j] = rc[j].r;
         if (bal[j] > EPS) {
           var it = bal[j] * r[j];
           bal[j] += it;
@@ -1120,6 +1181,37 @@ button, input { font: inherit; color: inherit; }
     };
   }
 
+  /**
+   * Debts as the simulation sees them: a debt with a rate change (`newApr` and `rateChangeYm`
+   * 'YYYY-MM') gets `rateChange: {month, apr}` relative to `asOf`. A change already in the
+   * past means the current APR should simply be the new one, so it's dropped.
+   */
+  function withRateChanges(debts, asOf) {
+    return debts.map(function (d) {
+      if (!d || d.newApr == null || d.newApr === '' || !d.rateChangeYm) return d;
+      var m = lumpMonth(asOf, d.rateChangeYm);
+      if (m === null || m < 1) return d;
+      return Object.assign({}, d, { rateChange: { month: m, apr: num(d.newApr) } });
+    });
+  }
+
+  /**
+   * Emergency-fund buffer: how many months of required payments (minimums on every debt,
+   * plus essentials if given) the savings cover, with and without the plan's extra.
+   */
+  function bufferCheck(debts, savings, extra, essentials) {
+    var mins = 0;
+    debts.forEach(function (d) { if (num(d.balance) > EPS) mins += Math.max(0, num(d.payment)); });
+    var monthly = mins + Math.max(0, num(essentials));
+    var s = Math.max(0, num(savings));
+    return {
+      minimums: mins,
+      monthly: monthly,
+      months: monthly > 0 ? s / monthly : Infinity,
+      extraMonths: Math.max(0, num(extra)) > 0 ? s / Math.max(0, num(extra)) : Infinity   // months of extra the savings equal
+    };
+  }
+
   function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
   function anyOpen(a) { for (var i = 0; i < a.length; i++) if (a[i] > EPS) return true; return false; }
 
@@ -1255,7 +1347,7 @@ button, input { font: inherit; color: inherit; }
     isGrowing: isGrowing, monthlyInterest: monthlyInterest, assetValueAt: assetValueAt,
     snapshot: snapshot, rebase: rebase,
     formatMoneyInput: formatMoneyInput, parseMoneyInput: parseMoneyInput,
-    lumpMonth: lumpMonth, activeLumps: activeLumps, extraForGoal: extraForGoal, progressOver: progressOver, headStart: headStart
+    lumpMonth: lumpMonth, activeLumps: activeLumps, extraForGoal: extraForGoal, progressOver: progressOver, headStart: headStart, withRateChanges: withRateChanges, bufferCheck: bufferCheck
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
@@ -1497,6 +1589,9 @@ button, input { font: inherit; color: inherit; }
       };
       if (d.inCountdown === false) out.inCountdown = false;
       if (d.cheered === true) out.cheered = true;
+      if (YM.test(d.rateChangeYm) && d.newApr != null && d.newApr !== '' && isFinite(Number(d.newApr))) {
+        out.rateChangeYm = d.rateChangeYm; out.newApr = num(d.newApr, 0, 100, 0);
+      }
       var paid = time(d.paidOffAt);
       if (paid && out.balance <= 0.005) out.paidOffAt = paid;
       return out;
@@ -1535,6 +1630,8 @@ button, input { font: inherit; color: inherit; }
         cheers: Array.isArray(pr.cheers) ? [25, 50, 75].filter(function (c) { return pr.cheers.indexOf(c) >= 0; }) : []
       };
     }
+    if (num(s.buffer, 0, 1e12, 0) > 0) state.buffer = num(s.buffer, 0, 1e12, 0);
+    if (num(s.essentials, 0, 1e12, 0) > 0) state.essentials = num(s.essentials, 0, 1e12, 0);
     var celebrated = time(s.celebratedFor);
     if (celebrated) state.celebratedFor = celebrated;
 
@@ -1790,7 +1887,7 @@ window.DFC_PRO = {
 
   function recompute() {
     var inc = [], exc = [], incIdx = [], excIdx = [];
-    state.debts.forEach(function (d, i) {
+    E.withRateChanges(state.debts, state.asOf).forEach(function (d, i) {
       if (counted(d)) { inc.push(d); incIdx.push(i); } else { exc.push(d); excIdx.push(i); }
     });
     incDebts = inc;
@@ -1947,6 +2044,40 @@ window.DFC_PRO = {
     return wrap;
   }
 
+  /** "Rate changes on…" for a debt: a 0% promo ending or a variable rate resetting (Pro). */
+  function rateChangeRow(item) {
+    var det = h('details', { class: 'rate-change', id: 'debt-' + item.id + '-rate' });
+    var has = item.newApr != null && item.newApr !== '' && !!item.rateChangeYm;
+    if (has) det.open = true;
+    var sum = h('summary');
+    sum.textContent = has ? 'Rate changes to ' + (+item.newApr) + '% in ' + dMonthYear.format(new Date(ymDate(item.rateChangeYm))) : 'Rate changes later? (0% promo ending, variable rate)';
+    det.appendChild(sum);
+    var row = h('div', { class: 'rate-row' });
+    var box = h('div', { class: 'input-wrap' });
+    var apr = h('input', { id: 'debt-' + item.id + '-newapr', type: 'number', inputmode: 'decimal', step: 'any', min: '0', max: '100', 'aria-label': 'New rate (APR)', placeholder: 'New APR' });
+    apr.value = has ? String(+item.newApr) : '';
+    box.appendChild(apr); box.appendChild(h('span', { class: 'adorn', 'aria-hidden': 'true' }, '%'));
+    var sel = monthSelect('debt-' + item.id + '-ratemonth', item.rateChangeYm || '');
+    sel.insertBefore(h('option', { value: '' }, 'Starting…'), sel.firstChild);
+    if (!item.rateChangeYm) sel.value = '';
+    var clear = h('button', { class: 'link-btn', type: 'button' }, 'Remove');
+    clear.hidden = !has;
+    function commit() {
+      var a = parseFloat(apr.value), ym = sel.value;
+      update(function (s) {
+        var t = find(s.debts, item.id); if (!t) return;
+        if (isFinite(a) && ym) { t.newApr = Math.min(100, Math.max(0, a)); t.rateChangeYm = ym; }
+        else { delete t.newApr; delete t.rateChangeYm; }
+      }, { userEdit: true, lists: true });
+    }
+    apr.addEventListener('change', commit); sel.addEventListener('change', commit);
+    clear.addEventListener('click', function () { apr.value = ''; sel.value = ''; commit(); });
+    row.appendChild(box); row.appendChild(sel); row.appendChild(clear);
+    det.appendChild(row);
+    if (!proActive()) { det.classList.add('rate-locked'); row.hidden = true; sum.textContent = 'Rate changes later? Plan for it with Pro'; }
+    return det;
+  }
+
   function itemRow(kind, item) {
     var row = h('div', { class: 'item', 'data-id': item.id });
     var top = h('div', { class: 'item-top' });
@@ -1974,12 +2105,15 @@ window.DFC_PRO = {
       fields.appendChild(numField('debt', item, 'balance', 'Balance', '$', null));
       fields.appendChild(numField('debt', item, 'apr', 'Interest rate (APR)', null, '%', { max: '100' }));
       fields.appendChild(numField('debt', item, 'payment', 'Monthly payment', '$', null));
+      row.appendChild(fields);
+      row.appendChild(rateChangeRow(item));
+      fields = null;
     } else {
       fields.appendChild(numField('asset', item, 'value', 'Value', '$', null));
       fields.appendChild(numField('asset', item, 'rate', 'Growth per year', null, '%', { min: '-50', max: '50' }));
       fields.appendChild(numField('asset', item, 'contribution', 'Added monthly', '$', null));
     }
-    row.appendChild(fields);
+    if (fields) row.appendChild(fields);
     if (kind === 'debt') {
       var tog = h('label', { class: 'count-toggle' });
       var cb = h('input', { type: 'checkbox', id: 'debt-' + item.id + '-count' });
@@ -2365,6 +2499,10 @@ window.DFC_PRO = {
       }
       box.appendChild(chip('', 'flag', 'Paid off ' + dMonthYear.format(new Date(payoffDate(pm)))));
       box.appendChild(chip('', null, fmt0.format(plan.interest[i]) + ' interest to go'));
+      var rcm = d.rateChangeYm ? E.lumpMonth(state.asOf, d.rateChangeYm) : null;
+      if (proActive() && rcm !== null && rcm >= 1 && rcm < pm) {
+        box.appendChild(chip(rcm <= 2 ? 'warn' : '', 'warn', 'Rate goes to ' + (+d.newApr) + '% ' + dMonthYear.format(new Date(ymDate(d.rateChangeYm))) + (rcm <= 2 ? ' · soon' : '')));
+      }
       if (E.isGrowing(d) && counted(d)) box.appendChild(chip('warn', 'warn', 'Payment is under the ' + fmt2.format(mi) + ' monthly interest; your plan’s extra covers it'));
     });
 
@@ -2385,6 +2523,7 @@ window.DFC_PRO = {
 
     renderLumps();
     renderGoal();
+    renderBuffer();
     renderResult(any);
     renderChart(any);
     renderOrder(any);
@@ -3296,6 +3435,17 @@ window.DFC_PRO = {
         els.line.appendChild(document.createTextNode('. You’ll pay ' + fmt0.format(plan.totalInterest) + ' more in interest before then.'));
         var skipped = uncountedNames();
         if (skipped.length) els.line.appendChild(document.createTextNode(' Not counted: ' + skipped.join(', ') + '.'));
+        if (proActive()) {
+          state.debts.forEach(function (d, i) {
+            var m = d.rateChangeYm ? E.lumpMonth(state.asOf, d.rateChangeYm) : null;
+            var pm = plan.payoffMonth[i];
+            if (!counted(d) || m === null || m < 1 || m > 2 || (pm !== null && m >= pm)) return;
+            var warn = h('strong', null, 'Heads up: ' + (d.name || 'a debt') + '’s rate goes to ' + (+d.newApr) + '% ' + dMonthYear.format(new Date(ymDate(d.rateChangeYm))) + '.');
+            els.line.appendChild(document.createTextNode(' '));
+            els.line.appendChild(warn);
+            els.line.appendChild(document.createTextNode(' That’s already in your payoff date.'));
+          });
+        }
         els.cd.setAttribute('aria-label', 'Debt-free in ' + diff.years + ' years, ' + diff.months + ' months, ' + diff.days + ' days');
       }
     } else if (force || els.msg.dataset.mode !== mode || (mode === 'free' && els.msg.dataset.since !== String(freeAt))) {
@@ -3523,6 +3673,117 @@ window.DFC_PRO = {
     downloadText(CAL.makeCalendar(events, Date.now()), 'debt-free-clock-reminders.ics', 'text/calendar');
     calMsg('good', 'Saved debt-free-clock-reminders.ics with ' + events.length + ' ' + plural(events.length, 'reminder', 'reminders')
       + '. Open it to add them to your calendar. If your plan changes, save a new one.');
+  });
+
+  // ---------- emergency-fund buffer (Pro) ----------
+  // Savings (and optional monthly essentials) against the minimum payments: how many months
+  // they'd cover if income stopped. Under 3 months, the extra going to debt is flagged.
+  function renderBuffer() {
+    var box = $('buffer-block'), out = $('buffer-out');
+    if (!proActive()) return;
+    var sv = $('buffer-savings'), es = $('buffer-essentials');
+    if (document.activeElement !== sv) sv.value = E.formatMoneyInput(+state.buffer || 0);
+    if (document.activeElement !== es) es.value = E.formatMoneyInput(+state.essentials || 0);
+    out.className = 'goal-out';
+    out.textContent = '';
+    if (!(+state.buffer > 0)) { out.textContent = 'Enter what you have set aside, and the clock will tell you how long it would cover your payments.'; return; }
+    var ep = effectivePlan();
+    var b = E.bufferCheck(state.debts, state.buffer, ep.method !== 'minimums' ? ep.extra : 0, state.essentials);
+    var put = function (t, strong) { out.appendChild(strong ? h('strong', null, t) : document.createTextNode(t)); };
+    if (!isFinite(b.months)) { out.textContent = 'No required payments yet. Add your debts first.'; return; }
+    var m = b.months;
+    var mo = m >= 12 ? (Math.round(m / 12 * 10) / 10) + ' years' : (Math.round(m * 10) / 10) + ' ' + plural(Math.round(m * 10) / 10, 'month', 'months');
+    put('Your savings cover ');
+    put(mo, true);
+    put(' of ' + (+state.essentials > 0 ? 'payments and essentials' : 'minimum payments') + ' (' + fmt0.format(b.monthly) + ' a month).');
+    var extra = ep.method !== 'minimums' ? +ep.extra || 0 : 0;
+    if (m < 3) {
+      var w = h('span', { class: 'warn-text' });
+      w.appendChild(document.createTextNode(' Under 3 months is a thin cushion.'));
+      out.appendChild(w);
+      if (extra > 0) put(' Consider sending the ' + fmt0.format(extra) + ' extra to savings until you have about ' + fmt0.format(b.monthly * 3) + ' set aside, then back to debt.');
+      else put(' Building it to about ' + fmt0.format(b.monthly * 3) + ' before adding extra to debt is a common rule of thumb.');
+    } else if (m < 6) {
+      put(' That’s a reasonable cushion. Many people aim for 3 to 6 months.');
+    } else {
+      put(' That’s a solid cushion. Savings beyond 6 months could go toward debt, if that’s your priority.');
+    }
+    put(' This is a rule of thumb, not advice.');
+  }
+  ['buffer-savings', 'buffer-essentials'].forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      var n = E.parseMoneyInput(this.value); n = isFinite(n) ? Math.max(0, n) : 0;
+      this.value = E.formatMoneyInput(n);
+      update(function (s) { if (id === 'buffer-savings') s.buffer = n; else s.essentials = n; });
+    });
+  });
+
+  // ---------- printable plan (Pro) ----------
+  function renderPrint() {
+    if (!proActive() || !hasCounted()) return;
+    var ep = effectivePlan();
+    var now = Date.now();
+    var snap = E.snapshot(state, plan, now);
+    var P = $('print-sheet');
+    P.textContent = '';
+    var top = h('div', { class: 'p-top' });
+    top.appendChild(h('div', { class: 'p-brand' }, 'DEBT-FREE CLOCK'));
+    top.appendChild(h('div', { class: 'p-date' }, 'Plan as of ' + dShort.format(new Date(now))));
+    P.appendChild(top);
+    var big = h('div', { class: 'p-big' });
+    if (isFinite(incPlan.months) && snap.payoffAt > now) {
+      var diff = E.calendarDiff(now, snap.payoffAt);
+      big.appendChild(h('div', { class: 'p-lead' }, 'Debt-free in'));
+      big.appendChild(h('div', { class: 'p-count' }, diff.years + ' ' + plural(diff.years, 'year', 'years') + ', ' + diff.months + ' ' + plural(diff.months, 'month', 'months') + ', ' + diff.days + ' ' + plural(diff.days, 'day', 'days')));
+      big.appendChild(h('div', { class: 'p-sub' }, 'Last payment ' + dLong.format(new Date(snap.payoffAt))));
+    } else {
+      big.appendChild(h('div', { class: 'p-lead' }, 'Your plan'));
+    }
+    P.appendChild(big);
+    var facts = h('div', { class: 'p-facts' });
+    var method = ep.method === 'minimums' ? 'Minimum payments' : (ep.method === 'avalanche' ? 'Avalanche: highest rate first' : 'Snowball: smallest balance first');
+    var payments = 0; incDebts.forEach(function (d) { if ((+d.balance || 0) > E.EPS) payments += +d.payment || 0; });
+    var fact = function (k, v) { var f = h('div', { class: 'p-fact' }); f.appendChild(h('span', null, k)); f.appendChild(h('strong', null, v)); facts.appendChild(f); };
+    fact('Method', method);
+    fact('Each month', fmt0.format(payments + (ep.method !== 'minimums' ? +ep.extra || 0 : 0)) + (ep.method !== 'minimums' && +ep.extra ? ' (' + fmt0.format(payments) + ' + ' + fmt0.format(+ep.extra) + ' extra)' : ''));
+    if (isFinite(incBase.months) && isFinite(incPlan.months) && incBase.months > incPlan.months) fact('Versus minimums', span(incBase.months - incPlan.months) + ' sooner, ' + fmt0.format(incBase.totalInterest - incPlan.totalInterest) + ' less interest');
+    fact('Interest still to pay', fmt0.format(incPlan.totalInterest));
+    P.appendChild(facts);
+    var tbl = h('table', { class: 'p-table' });
+    var thead = h('thead'); var hr = h('tr');
+    ['Debt', 'Balance', 'Rate', 'Payment', 'Paid off'].forEach(function (t) { hr.appendChild(h('th', null, t)); });
+    thead.appendChild(hr); tbl.appendChild(thead);
+    var tb = h('tbody');
+    var ordered = state.debts.map(function (d, i) { return { d: d, i: i, m: plan.payoffMonth[i] }; })
+      .filter(function (x) { return (+x.d.balance || 0) > E.EPS; })
+      .sort(function (a, b) { return (a.m === null ? 1e9 : a.m) - (b.m === null ? 1e9 : b.m); });
+    ordered.forEach(function (x) {
+      var tr = h('tr');
+      tr.appendChild(h('td', null, (x.d.name || 'Unnamed debt') + (counted(x.d) ? '' : ' (own schedule)')));
+      tr.appendChild(h('td', null, fmt0.format(+x.d.balance)));
+      tr.appendChild(h('td', null, (+x.d.apr || 0) + '%' + (x.d.rateChangeYm && x.d.newApr != null ? ' → ' + (+x.d.newApr) + '% ' + dMonthYear.format(new Date(ymDate(x.d.rateChangeYm))) : '')));
+      tr.appendChild(h('td', null, fmt0.format(+x.d.payment || 0)));
+      tr.appendChild(h('td', null, x.m === null ? 'Never at this pace' : dMonthYear.format(new Date(payoffDate(x.m)))));
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); P.appendChild(tbl);
+    var open = (state.plan.lumps || []).filter(function (l) { return !l.done && +l.amount > 0; }).sort(function (a, b) { return a.ym < b.ym ? -1 : 1; });
+    if (open.length) {
+      P.appendChild(h('h3', null, 'One-time payments'));
+      var ul = h('ul', { class: 'p-list' });
+      open.forEach(function (l) { ul.appendChild(h('li', null, dMonthYear.format(new Date(ymDate(l.ym))) + ': ' + fmt0.format(+l.amount) + (l.note ? ' (' + l.note + ')' : ''))); });
+      P.appendChild(ul);
+    }
+    var fridge = h('div', { class: 'p-fridge' });
+    fridge.appendChild(h('div', { class: 'p-fridge-lead' }, 'Every payment is a day closer.'));
+    fridge.appendChild(h('div', { class: 'p-fridge-line' }, 'Next payment: the ' + ordinal(new Date(state.asOf).getDate()) + ' of each month · ' + fmt0.format(payments + (ep.method !== 'minimums' ? +ep.extra || 0 : 0)) + ' toward debt'));
+    P.appendChild(fridge);
+    P.appendChild(h('div', { class: 'p-foot' }, 'Estimates from Debt-Free Clock, not financial advice. the-ljaw.github.io/debt-free-clock'));
+  }
+  $('print-plan').addEventListener('click', function () {
+    if (!hasCounted()) { showToast('Add a debt to your countdown first.', false); return; }
+    renderPrint();
+    window.print();
   });
 
   // ---------- install as an app ----------

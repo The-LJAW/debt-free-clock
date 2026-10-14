@@ -97,3 +97,16 @@ test('one-time payments, the goal and progress survive a backup, cleaned', () =>
   assert.deepEqual(m.state.plan.lumps.map((l) => [l.ym, l.amount, l.note]), [['2027-03', 2000, 'Tax refund'], ['2026-11', 500, ''], ['2027-05', 0, '']]);
   assert.deepEqual(m.state.progress, { since: asOf, paid: 0, avoided: 0, cheers: [25] });
 });
+
+test('rate changes and the safety cushion survive a backup', () => {
+  const s = { ...state, buffer: 4500, essentials: 2200,
+    debts: [{ ...state.debts[0], newApr: 24.99, rateChangeYm: '2027-04' }, ...state.debts.slice(1)] };
+  const r = B.readBackup(B.makeBackup(s, null, asOf));
+  assert.deepEqual(r.state, s);
+  const messy = JSON.parse(B.makeBackup(s, null, asOf));
+  messy.state.debts[0].newApr = 'high'; messy.state.buffer = -3;
+  const m = B.readBackup(JSON.stringify(messy));
+  assert.equal(m.state.debts[0].newApr, undefined);
+  assert.equal(m.state.debts[0].rateChangeYm, undefined);
+  assert.equal(m.state.buffer, undefined);
+});

@@ -77,6 +77,9 @@
       };
       if (d.inCountdown === false) out.inCountdown = false;
       if (d.cheered === true) out.cheered = true;
+      if (YM.test(d.rateChangeYm) && d.newApr != null && d.newApr !== '' && isFinite(Number(d.newApr))) {
+        out.rateChangeYm = d.rateChangeYm; out.newApr = num(d.newApr, 0, 100, 0);
+      }
       var paid = time(d.paidOffAt);
       if (paid && out.balance <= 0.005) out.paidOffAt = paid;
       return out;
@@ -115,6 +118,8 @@
         cheers: Array.isArray(pr.cheers) ? [25, 50, 75].filter(function (c) { return pr.cheers.indexOf(c) >= 0; }) : []
       };
     }
+    if (num(s.buffer, 0, 1e12, 0) > 0) state.buffer = num(s.buffer, 0, 1e12, 0);
+    if (num(s.essentials, 0, 1e12, 0) > 0) state.essentials = num(s.essentials, 0, 1e12, 0);
     var celebrated = time(s.celebratedFor);
     if (celebrated) state.celebratedFor = celebrated;
 
