@@ -72,6 +72,11 @@ Everything runs in the browser, and user numbers are saved only in localStorage.
   shown as a 25-LED bar on the board with the next milestone. 25/50/75% and each paid-off
   debt (`debt.cheered`) get one queued cheer with confetti. Progress is tracked for everyone
   but shown only to Pro.
+- Nudges (Oct 14, 2026): the free teaser adds "Had you started a year ago, you'd be $X further
+  along" (`E.headStart`, 12 months, hidden on example numbers). For Pro with a plan on the
+  clock, the interest ticker's second line becomes "your plan has spared you $X so far"
+  (`progress.avoided`), or "sparing you $X a day" once that's at least 50 cents, or "will
+  spare you $X" (total interest saved) on day one.
 - Once every counted debt is paid off, the board celebrates: green DEBT-FREE sign, the clock
   counts UP from the last payment (`paidOffAt`, recorded by `E.rebase`), and confetti plays
   once per payoff (`state.celebratedFor`) or when the sign is tapped. A blank $0 row never

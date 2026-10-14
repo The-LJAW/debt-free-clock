@@ -852,6 +852,14 @@
       sub.appendChild(document.createTextNode('That’s what the avalanche method plus ' + x + ' extra a month could do for your debts, saving about '));
       sub.appendChild(h('strong', null, fmt0.format(Math.max(0, incBase.totalInterest - teaser.totalInterest)) + ' in interest'));
       sub.appendChild(document.createTextNode('. Pro lets you try any plan and puts it on your clock.'));
+      var hs = E.headStart(incDebts, teaser, incBase, 12);
+      if (hs.ahead >= 50 && !state.example) {
+        var ago = h('p', { class: 'teaser-ago' });
+        ago.appendChild(document.createTextNode('Had you started a year ago, you’d be '));
+        ago.appendChild(h('strong', null, fmt0.format(hs.ahead) + ' further along'));
+        ago.appendChild(document.createTextNode(' today. The best time to start is now.'));
+        sub.appendChild(ago);
+      }
       return;
     }
     big.textContent = 'Find your fastest way out';
@@ -1574,7 +1582,15 @@
     else if (dDay < 0) setRate(els.debtRate, '▼ ', fmt2.format(-dDay) + ' a day', ' as you pay it down');
     else setRate(els.debtRate, '▲ ', fmt2.format(dDay) + ' a day', ': payments don’t cover the interest');
     var iDay = snap.interestPerSec * 86400;
-    setRate(els.intRate, '', fmt2.format(iDay) + ' a day', ' · ' + fmt0.format(iDay * 365) + ' a year');
+    // Pro with a plan on the clock: the interest the plan is sparing them, vs. minimums only
+    var planOn = proActive() && !state.example && incDebts.length && (effectivePlan().method !== 'minimums' || lumpsActive.length);
+    var pr = state.progress, avoidedSoFar = planOn && pr ? pr.avoided : 0;
+    var avoidDay = planOn ? E.headStart(incDebts, incPlan, incBase, 1).perDay : 0;
+    if (planOn && avoidedSoFar >= 1) setRate(els.intRate, '', fmt2.format(iDay) + ' a day', ' · your plan has spared you ' + fmt0.format(avoidedSoFar) + ' so far');
+    else if (planOn && avoidDay >= 0.5) setRate(els.intRate, '', fmt2.format(iDay) + ' a day', ' · your plan is sparing you ' + fmt2.format(avoidDay) + ' a day');
+    else if (planOn && isFinite(incBase.totalInterest) && incBase.totalInterest - incPlan.totalInterest >= 1)
+      setRate(els.intRate, '', fmt2.format(iDay) + ' a day', ' · your plan will spare you ' + fmt0.format(incBase.totalInterest - incPlan.totalInterest));
+    else setRate(els.intRate, '', fmt2.format(iDay) + ' a day', ' · ' + fmt0.format(iDay * 365) + ' a year');
     var nDay = snap.netPerSec * 86400;
     setRate(els.netRate, nDay >= 0 ? '▲ ' : '▼ ', fmt2.format(Math.abs(nDay)) + ' a day', nDay >= 0 ? ' and climbing' : '');
 

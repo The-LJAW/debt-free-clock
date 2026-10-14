@@ -281,3 +281,15 @@ test('progress over the first months: paid off, interest, and interest minimums 
   assert.ok(p.baseInterest > p.interest, 'the plan charges less interest than minimums');
   assert.deepEqual(E.progressOver(cards, plan, base, 0), { paid: 0, interest: 0, baseInterest: 0 });
 });
+
+test('a year ago: the plan would have put you further along, and avoids interest daily', () => {
+  const plan = E.simulateDebts(cards, { method: 'avalanche', extra: 200 });
+  const base = E.simulateDebts(cards, { method: 'minimums' });
+  const hs = E.headStart(cards, plan, base, 12);
+  close(hs.ahead, base.total[12] - plan.total[12], 0.01, 'extra principal gone after 12 months');
+  assert.ok(hs.ahead > 2400, 'at least the $200 x 12 of extra, plus interest avoided');
+  assert.ok(hs.interestSaved > 0 && hs.interestSaved < hs.ahead);
+  assert.ok(hs.perDay > 0 && hs.perDay < 5, `${hs.perDay} a day is a sane first-month figure`);
+  const none = E.headStart(cards, base, base, 12);
+  assert.deepEqual(none, { ahead: 0, interestSaved: 0, perDay: 0 });
+});

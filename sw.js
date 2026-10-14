@@ -9,7 +9,7 @@
  *  - Everything else (Lemon Squeezy license checks, checkout) goes straight to the network.
  * Nobody's numbers pass through here: they live in the page's own storage.
  */
-var VERSION = '14f2055bd425';
+var VERSION = '40f57e822c01';
 var CACHE = 'dfc-' + VERSION;
 var CORE = ['./', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 

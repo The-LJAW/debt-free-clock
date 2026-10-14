@@ -266,6 +266,29 @@
     return { paid: paid, interest: interest, baseInterest: baseInterest };
   }
 
+  /**
+   * Had this plan started `k` months ago (from today's balances), how much further along
+   * you'd be now versus minimum payments: extra principal gone and interest saved over
+   * those months, plus the daily interest the plan avoids today (month 1's difference / 30).
+   */
+  function headStart(debts, planSim, baseSim, k) {
+    var p = progressOver(debts, planSim, baseSim, k);
+    var b = progressOver(debts, baseSim, baseSim, k);
+    // interest the plan avoids per day right now: after the next payment, the plan's
+    // balances carry less interest than the minimums-only balances would
+    var perMonth = 0;
+    for (var i = 0; i < debts.length; i++) {
+      var r = Math.max(0, num(debts[i].apr)) / 100 / 12;
+      var ps = planSim.series[i], bs = baseSim.series[i];
+      perMonth += (bs[Math.min(1, bs.length - 1)] - ps[Math.min(1, ps.length - 1)]) * r;
+    }
+    return {
+      ahead: Math.max(0, p.paid - b.paid),
+      interestSaved: Math.max(0, p.baseInterest - p.interest),
+      perDay: Math.max(0, perMonth) / (365.25 / 12)
+    };
+  }
+
   function sum(a) { var s = 0; for (var i = 0; i < a.length; i++) s += a[i]; return s; }
   function anyOpen(a) { for (var i = 0; i < a.length; i++) if (a[i] > EPS) return true; return false; }
 
@@ -401,7 +424,7 @@
     isGrowing: isGrowing, monthlyInterest: monthlyInterest, assetValueAt: assetValueAt,
     snapshot: snapshot, rebase: rebase,
     formatMoneyInput: formatMoneyInput, parseMoneyInput: parseMoneyInput,
-    lumpMonth: lumpMonth, activeLumps: activeLumps, extraForGoal: extraForGoal, progressOver: progressOver
+    lumpMonth: lumpMonth, activeLumps: activeLumps, extraForGoal: extraForGoal, progressOver: progressOver, headStart: headStart
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
