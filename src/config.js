@@ -7,11 +7,11 @@
 window.DFC_PRO = {
   price: '$9',
   // The product's checkout link (Lemon Squeezy: Products > Pro unlock > Share).
-  checkoutUrl: 'https://debt-free-clock.lemonsqueezy.com/checkout/buy/1fab363d-8c42-4af7-aa34-8b954b9079c1',
+  checkoutUrl: 'https://debt-free-clock.lemonsqueezy.com/checkout/buy/be6d8c30-f671-4d7e-a518-1fb76c81c7b3',
   // Your store's ID number (Lemon Squeezy: Settings > Stores).
   storeId: 496349,
   // The Pro product's ID. List both the test-mode and live-mode IDs while testing.
-  productIds: [1434381], // test-mode product; swap for the live product ID at launch
+  productIds: [1440546], // live product (the test-mode product, 1434381, no longer unlocks)
   apiBase: 'https://api.lemonsqueezy.com/v1/licenses',
   // How often a browser re-checks its key (catches refunds). Offline never locks anyone out.
   recheckDays: 14
